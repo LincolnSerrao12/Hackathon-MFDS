@@ -15,7 +15,7 @@
     --ok:#3ecf8e; --warn:#f0b34a; --bad:#ef6b73; --mark:#3a4a1c; --markt:#e1f5a5;
     --shadow:0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.25); --head:system-ui,-apple-system,"Segoe UI",sans-serif;
     --glow:radial-gradient(1200px 500px at 85% -10%, rgba(110,168,255,.10), transparent 60%);
-    --k-document:#3987e5; --k-image:#d95926; --k-video:#199e70; --k-audio:#c98500; --k-code:#d55181; --k-archive:#0ca30c; --k-other:#6b7385;
+    --k-document:#3987e5; --k-image:#d95926; --k-video:#199e70; --k-audio:#c98500; --k-code:#d55181; --k-archive:#0ca30c; --k-other:#6b7385; --k-system:#9042b4;
   }
   [data-theme="light"] {
     --bg:#f4f6f9; --bg2:#eef1f5; --panel:#ffffff; --panel2:#f3f5f9; --line:#e1e5ec; --line2:#cfd5df;
@@ -23,7 +23,7 @@
     --ok:#12965f; --warn:#b7791f; --bad:#d93a45; --mark:#fbefa0; --markt:#4a3b00;
     --shadow:0 1px 2px rgba(16,24,40,.06), 0 6px 20px rgba(16,24,40,.06);
     --glow:radial-gradient(1200px 500px at 85% -10%, rgba(37,99,235,.07), transparent 60%);
-    --k-document:#2a78d6; --k-image:#eb6834; --k-video:#1baf7a; --k-audio:#eda100; --k-code:#e87ba4; --k-archive:#008300; --k-other:#8a93a3;
+    --k-document:#2a78d6; --k-image:#eb6834; --k-video:#1baf7a; --k-audio:#eda100; --k-code:#e87ba4; --k-archive:#008300; --k-other:#8a93a3; --k-system:#900066;
   }
   [data-theme="royal"] {
     --bg:#110a22; --bg2:#150d2b; --panel:#1b1235; --panel2:#241843; --line:#352657; --line2:#4a3775;
@@ -31,7 +31,7 @@
     --ok:#7fd8a7; --warn:#f1c25b; --bad:#f08a8f; --mark:#4d3b12; --markt:#ffe9a8;
     --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(10,0,30,.45); --head:"Cormorant Garamond",Georgia,"Times New Roman",serif;
     --glow:radial-gradient(900px 420px at 80% -10%, rgba(217,180,74,.13), transparent 60%), radial-gradient(800px 400px at 0% 0%, rgba(183,132,255,.10), transparent 60%);
-    --k-document:#3987e5; --k-image:#d95926; --k-video:#199e70; --k-audio:#c98500; --k-code:#d55181; --k-archive:#0ca30c; --k-other:#7a6d96;
+    --k-document:#3987e5; --k-image:#d95926; --k-video:#199e70; --k-audio:#c98500; --k-code:#d55181; --k-archive:#0ca30c; --k-other:#7a6d96; --k-system:#9042b4;
   }
   [data-theme="royal"] .card, [data-theme="royal"] .kpi { border-image:linear-gradient(135deg, rgba(217,180,74,.55), rgba(74,55,117,.6) 40%, rgba(74,55,117,.6) 60%, rgba(217,180,74,.35)) 1; border-radius:0; }
   [data-theme="royal"] h1.brand b, [data-theme="royal"] .card h3 { font-family:var(--head); letter-spacing:.04em; }
@@ -108,6 +108,19 @@
   .big { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
   .big div { background:var(--panel2); border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
   .big b { display:block; font-size:20px; font-weight:700; font-family:var(--head); }
+  .disk + .disk { margin-top:16px; padding-top:14px; border-top:1px solid var(--line); }
+  .disk-h { display:flex; gap:10px; align-items:flex-start; margin-bottom:10px; }
+  .disk-h .i { flex:none; width:18px; height:18px; color:var(--mute); margin-top:2px; }
+  .disk-h b { display:block; font-size:13.5px; line-height:1.25; }
+  .disk-h small { display:block; color:var(--mute); font-size:11.5px; }
+  .disk-h .pill { margin-left:auto; flex:none; }
+  .disk .big { margin-bottom:10px; } .disk .big b { font-size:17px; }
+  .disk .legend { flex-direction:column; align-items:flex-start; gap:2px; } .disk .legend button { display:block; text-align:left; } .disk .legend .sw { display:inline-block; margin-right:6px; vertical-align:-1px; }
+  .disk-h .ell { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .disk .parts { font-size:11.5px; color:var(--mute); margin-top:8px; line-height:1.5; }
+  .disk details { margin-top:8px; } .disk details summary { font-size:12px; margin-bottom:6px; }
+  .disk .rank { grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto; font-size:11.5px; }
+  .disk-foot { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:14px; font-size:11.5px; color:var(--mute); }
   .status-line { display:flex; justify-content:space-between; align-items:center; font-size:12.5px; margin:4px 0; }
 
   /* ---------- sidebar: sources ---------- */
@@ -176,7 +189,10 @@
   .hits.grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(170px,1fr)); gap:12px; }
   .hits.grid .hit { flex-direction:column; gap:8px; border:1px solid var(--line); padding:8px; }
   .hits.grid .thumb { width:100%; height:130px; }
-  .hits.grid .pth, .hits.grid .snip, .hits.grid .acts { display:none; }
+  .hits.grid .pth, .hits.grid .snip { display:none; }
+  .hits.grid .acts { opacity:1; position:absolute; top:12px; right:12px; background:color-mix(in srgb, var(--panel) 85%, transparent); border-radius:8px; }
+  .hits.grid .hit { position:relative; }
+  .hits.grid .meta-line { gap:8px; font-size:11.5px; } .hits.grid .meta-line span:nth-child(n+4) { display:none; }
   .hits.grid .nm { font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .hits.grid .why { display:none; }
 
@@ -213,6 +229,29 @@
   .modal h4 { margin:0 0 8px; font-size:16px; font-family:var(--head); }
   .modal p { margin:0 0 18px; color:var(--soft); white-space:pre-line; }
   .modal .row { justify-content:flex-end; }
+
+  /* ---------- pager + card grids ---------- */
+  .pager { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:16px; padding-top:14px; border-top:1px solid var(--line); }
+  .pager:empty { display:none; }
+  .pager .pg { min-width:34px; padding:6px 10px; border-radius:8px; font-variant-numeric:tabular-nums; background:transparent; }
+  .pager .pg.on { background:var(--acc); border-color:var(--acc); color:var(--ink); font-weight:700; }
+  .pager .gap { color:var(--mute); padding:0 2px; }
+  .pager .info { margin-left:auto; display:flex; align-items:center; gap:8px; color:var(--mute); font-size:12.5px; flex-wrap:wrap; }
+  .pager input { width:64px; padding:6px 8px; } .pager select { width:auto; padding:6px 8px; }
+  .pager.top { margin:0 0 14px; padding:0 0 12px; border-top:0; border-bottom:1px solid var(--line); }
+  .cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:12px; }
+  .dcard { display:flex; flex-direction:column; gap:8px; border:1px solid var(--line); border-radius:12px; background:var(--panel2); padding:12px; min-width:0; animation:fade .2s ease both; }
+  .dcard:hover { border-color:var(--line2); }
+  .dcard .pics { display:grid; grid-template-columns:repeat(auto-fit, minmax(0,1fr)); gap:4px; height:110px; border-radius:8px; overflow:hidden; background:var(--bg2); }
+  .dcard .pics img { width:100%; height:110px; object-fit:cover; cursor:zoom-in; }
+  .dcard .ico { height:110px; border-radius:8px; display:grid; place-items:center; background:var(--bg2); }
+  .dcard .ico svg.i { width:40px; height:40px; stroke-width:1.3; }
+  .dcard .nm { font-weight:600; word-break:break-word; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .dcard .locs { font-size:11.5px; color:var(--mute); display:grid; gap:2px; }
+  .dcard .locs span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .dcard .acts { display:flex; gap:6px; flex-wrap:wrap; margin-top:auto; }
+  .dcard .acts button { flex:1; }
+  .fcard .ico, .fcard .pics { height:120px; } .fcard .pics img { height:120px; }
 
   /* ---------- charts ---------- */
   #tip { position:fixed; z-index:70; pointer-events:none; background:var(--panel); border:1px solid var(--line2); border-radius:8px; padding:7px 10px; font-size:12.5px; box-shadow:var(--shadow); max-width:300px; opacity:0; transition:opacity .08s; }
@@ -365,6 +404,10 @@
     <div id="stats"><small>loading…</small></div>
   </div>
   <div class="card">
+    <h3>Disks <span class="sp" id="disk-state"></span></h3>
+    <div id="disks"><small>loading…</small></div>
+  </div>
+  <div class="card">
     <h3>Sources <button class="btn-sm sp" id="add-toggle" aria-expanded="false"><svg class="i"><use href="#i-plus"/></svg> Add</button></h3>
     <div id="sources"><small>loading…</small></div>
     <div class="addbox hidden" id="addbox">
@@ -434,12 +477,12 @@
     <div class="reshead">
       <div class="meta" id="count" aria-live="polite"></div>
       <div class="seg" id="view" aria-label="Result layout">
-        <button data-v="list" class="on" title="List" aria-label="List view"><svg class="i"><use href="#i-list"/></svg></button>
+        <button data-v="list" title="List" aria-label="List view"><svg class="i"><use href="#i-list"/></svg></button>
         <button data-v="grid" title="Grid" aria-label="Grid view"><svg class="i"><use href="#i-grid"/></svg></button>
       </div>
     </div>
-    <div class="hits" id="results"></div>
-    <div class="more hidden" id="more"><button id="more-btn">Load more</button></div>
+    <div id="pager-st"></div><div class="hits" id="results"></div>
+    <div id="pager-s"></div>
   </div>
  </div>
 
@@ -451,11 +494,11 @@
       <div class="tile"><b>—</b><small>duplicate copies</small></div><div class="tile"><b>—</b><small>files over 50 MB</small></div><div class="tile"><b>—</b><small>old media</small></div>
     </div>
     <div id="cl-chart"></div>
-    <small style="display:block;margin-top:10px">“Analyse” hashes candidate duplicates, which can take a few seconds on big indexes. “Move to trash” puts files in <code>data/trash/&lt;time&gt;/</code> with a list of where they came from, so it can be undone. Only local files can be moved.</small>
+    <small style="display:block;margin-top:10px">“Analyse” hashes candidate duplicates, which can take a few seconds on big indexes. “Move to trash” sends files to your computer’s Trash, so you can restore them from the file manager. Only local files can be moved.</small>
   </div>
   <div class="card"><h3>Duplicate files <span class="hint" id="dup-count"></span></h3>
     <div class="types hidden" id="dup-types" style="margin:0 0 12px"></div>
-    <div id="cl-dup"><small>Run Analyse to look for duplicates.</small></div>
+    <div id="pager-dt"></div><div id="cl-dup"><small>Run Analyse to look for duplicates.</small></div><div id="pager-d"></div>
 </div>
   <div class="two">
     <div class="card"><h3>Largest files</h3><div id="cl-large"><small>—</small></div></div>
@@ -513,7 +556,7 @@ const J = (u, o) => fetch(u, o).then(async r => {
 });
 const post = (u, b) => J(u, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(b)});
 const KIND_ICON = {document:'doc', image:'image', video:'video', audio:'audio', code:'code', archive:'archive', other:'file'};
-const KIND_COLOR = new Proxy({}, {get: (_, k) => ['document','image','video','audio','code','archive','other'].includes(k) ? `var(--k-${k})` : 'var(--mute)'});  // per-theme colours
+const KIND_COLOR = new Proxy({}, {get: (_, k) => ['document','image','video','audio','code','archive','system','other'].includes(k) ? `var(--k-${k})` : 'var(--mute)'});  // per-theme colours
 const IMG_EXTS = ['jpg','jpeg','png','webp','bmp','gif','tif','tiff'];
 
 function toast(msg, kind = '') {
@@ -587,8 +630,8 @@ function meter(label, done, total, note = '') {
   return `<div><div class="mh"><span>${esc(label)}</span><span>${total ? `<b>${pctTxt(done, total)}</b> <small>${done.toLocaleString()} of ${total.toLocaleString()}</small>` : '<small>nothing to do</small>'}</span></div>
     <div class="meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct(done, total))}" aria-label="${esc(label)}"><i style="width:${total ? pct(done, total) : 100}%"></i></div>${note ? `<small>${note}</small>` : ''}</div>`;
 }
-const KIND_ORDER = ['document', 'image', 'video', 'audio', 'code', 'archive', 'other'];  // fixed colour order: colour follows the type, never its rank
-const KIND_LABEL = {document: 'Documents', image: 'Images', video: 'Videos', audio: 'Audio', code: 'Code', archive: 'Archives', other: 'Other'};
+const KIND_ORDER = ['document', 'image', 'video', 'audio', 'code', 'archive', 'system', 'other'];  // fixed colour order: colour follows the type, never its rank
+const KIND_LABEL = {document: 'Documents', image: 'Images', video: 'Videos', audio: 'Audio', code: 'Code', archive: 'Archives', system: 'Apps & system', other: 'Other'};
 function kindParts(byKind) {
   const m = Object.fromEntries(byKind.map(k => [k.kind, k]));
   return KIND_ORDER.filter(k => m[k]).map(k => ({key: k, label: KIND_LABEL[k] || k, value: m[k].bytes, color: KIND_COLOR[k], fig: `${fmt(m[k].bytes)} · ${m[k].n.toLocaleString()} files`}))
@@ -720,9 +763,9 @@ async function compareDup(g) {
   };
   if (m.el.querySelector('#cmp-trash')) m.el.querySelector('#cmp-trash').onclick = async () => {
     const ids = g.files.filter(f => f.id !== keep).map(f => f.id);
-    const ok = await confirmBox(`Move ${ids.length} cop${ids.length > 1 ? 'ies' : 'y'} to trash?`, 'Keeping:\n' + g.files.find(f => f.id === keep).path + '\n\nThe others go to the app’s trash folder and can be moved back.', 'Move to trash', true);
+    const ok = await confirmBox(`Move ${ids.length} cop${ids.length > 1 ? 'ies' : 'y'} to trash?`, 'Keeping:\n' + g.files.find(f => f.id === keep).path + '\n\nThe others go to your computer’s Trash and can be restored from there.', 'Move to trash', true);
     if (!ok) return;
-    try { const r = await post('/api/cleanup/trash', {ids}); toast(`Moved ${r.moved} file(s) to trash`, 'ok'); m.close(); loadCleanup(); stats(); }
+    try { const r = await post('/api/cleanup/trash', {ids}); toast(`Moved ${r.moved} file(s) to Trash`, 'ok'); if (r.errors?.length) toast(`${r.errors.length} not moved: ${r.errors[0].error}`, 'bad'); m.close(); loadCleanup(); stats(); }
     catch (e) { toast(e.message, 'bad'); }
   };
   show(cur);
@@ -732,12 +775,22 @@ async function compareDup(g) {
 async function viewFolder(folder, title) {
   const m = openModal(`<div class="box wide"><div class="vh"><div class="t"><h4>${esc(title)}</h4><div class="pth">${esc(folder)}</div></div><button class="icon-btn" data-close aria-label="Close">${icon('x')}</button></div><div class="vbody" style="background:var(--panel)"><div class="pv"><span class="spin"></span></div></div><div class="vf"><span class="grow meta" id="fl-note"></span><button class="btn-sm" id="fl-reveal">${icon('folder')} Open this folder</button><button class="btn-sm" data-close>Close</button></div></div>`);
   let r;
-  try { r = await J('/api/folder?path=' + encodeURIComponent(folder)); } catch (e) { m.el.querySelector('.vbody').innerHTML = `<div class="pv"><div class="empty"><b>Can’t list this folder</b>${esc(e.message)}</div></div>`; return; }
-  m.el.querySelector('#fl-note').textContent = r.total > r.files.length ? `Showing ${r.files.length} of ${r.total.toLocaleString()} files` : `${r.total.toLocaleString()} files`;
-  m.el.querySelector('.vbody').innerHTML = `<div class="flist" style="padding:6px 18px">${r.files.map(f => `<div class="frow">
-    <span class="row" style="gap:10px;flex:1;min-width:0;flex-wrap:nowrap"><span style="color:${KIND_COLOR[f.kind]};flex:none">${icon(KIND_ICON[f.kind] || 'file')}</span><span style="min-width:0"><span class="nm">${esc(f.name)}</span><br><small>${fmt(f.size)} · ${esc(f.modified)}</small></span></span>
-    <button class="btn-sm" data-view="${f.id}">${icon('eye')} View</button></div>`).join('') || '<div class="empty"><b>No indexed files here</b></div>'}</div>`;
-  m.el.querySelector('.vbody').onclick = e => { const b = e.target.closest('[data-view]'); if (b) viewFile(+b.dataset.view); };
+  try { r = await J('/api/folder?limit=1000&path=' + encodeURIComponent(folder)); } catch (e) { m.el.querySelector('.vbody').innerHTML = `<div class="pv"><div class="empty"><b>Can’t list this folder</b>${esc(e.message)}</div></div>`; return; }
+  m.el.querySelector('#fl-note').textContent = r.total > r.files.length ? `${r.files.length} of ${r.total.toLocaleString()} files listed` : `${r.total.toLocaleString()} files`;
+  let fp = 1;
+  const body = m.el.querySelector('.vbody');
+  const draw = () => {
+    const per = perPage(), start = (fp - 1) * per;
+    body.innerHTML = `<div style="padding:16px 18px;align-self:start">${pagerHtml('folder', fp, r.files.length, per, true)}<div class="cards">${r.files.slice(start, start + per).map(f => {
+      const img = f.kind === 'image' && IMG_EXTS.includes(f.ext);
+      return `<div class="dcard fcard">${img ? `<div class="pics"><img loading="lazy" src="/api/thumb/${f.id}" alt="" data-view="${f.id}"></div>` : `<div class="ico" style="color:${KIND_COLOR[f.kind]}">${icon(KIND_ICON[f.kind] || 'file')}</div>`}
+        <div class="nm" title="${esc(f.name)}">${esc(f.name)}</div><small>${fmt(f.size)} · ${esc(f.modified)}</small>
+        <div class="acts"><button class="btn-sm" data-view="${f.id}">${icon('eye')} View</button></div></div>`; }).join('') || '<div class="empty"><b>No indexed files here</b></div>'}</div>${pagerHtml('folder', fp, r.files.length, per)}</div>`;
+    body.scrollTop = 0;
+  };
+  pagers.folder = {go: n => { fp = n; draw(); }, per: () => { fp = 1; draw(); }};
+  draw();
+  body.onclick = e => { const b = e.target.closest('[data-view]'); if (b) viewFile(+b.dataset.view); };
   m.el.querySelector('#fl-reveal').onclick = () => r.files[0] ? fileAct('reveal', {id: r.files[0].id}) : toast('No files to locate', 'bad');
 }
 
@@ -762,16 +815,53 @@ function showTab(t) {
 document.querySelectorAll('#nav button').forEach(b => b.onclick = () => showTab(b.dataset.t));
 window.addEventListener('hashchange', () => showTab(location.hash.slice(1)));
 
+
+// ================= pager: numbered pages, previous / next, go to page, items per page =================
+const pagers = {};
+function pageList(p, n) {
+  const want = new Set([1, n, p - 1, p, p + 1, p - 2, p + 2].filter(x => x >= 1 && x <= n));
+  const out = []; let prev = 0;
+  [...want].sort((a, b) => a - b).forEach(x => { if (x - prev > 1) out.push('…'); out.push(x); prev = x; });
+  return out;
+}
+function pagerHtml(key, page, total, per, top = false) {
+  const n = Math.max(1, Math.ceil(total / per));
+  if (total <= 0) return '';
+  const a = (page - 1) * per + 1, b = Math.min(total, page * per);
+  return `<nav class="pager ${top ? 'top' : ''}" data-pager="${key}" aria-label="Pages">
+    <button class="pg" data-pg="${page - 1}" ${page <= 1 ? 'disabled' : ''} aria-label="Previous page">‹ Previous</button>
+    ${pageList(page, n).map(x => x === '…' ? '<span class="gap">…</span>' : `<button class="pg ${x === page ? 'on' : ''}" data-pg="${x}" ${x === page ? 'aria-current="page"' : ''}>${x}</button>`).join('')}
+    <button class="pg" data-pg="${page + 1}" ${page >= n ? 'disabled' : ''} aria-label="Next page">Next ›</button>
+    <span class="info"><span>${a.toLocaleString()}–${b.toLocaleString()} of ${total.toLocaleString()}</span>
+      ${n > 1 ? `<label>Go to <input type="number" min="1" max="${n}" value="${page}" data-pg-input aria-label="Go to page"></label><span>of ${n.toLocaleString()}</span>` : ''}
+      <select data-per aria-label="Items per page">${[12, 24, 48, 96].map(v => `<option value="${v}" ${v === per ? 'selected' : ''}>${v} per page</option>`).join('')}</select></span></nav>`;
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-pager] [data-pg]'); if (!b || b.disabled) return;
+  pagers[b.closest('[data-pager]').dataset.pager].go(+b.dataset.pg);
+});
+document.addEventListener('keydown', e => {
+  const i = e.target.closest && e.target.closest('[data-pager] [data-pg-input]');
+  if (i && e.key === 'Enter') { const n = Math.min(+i.max, Math.max(1, Math.round(+i.value || 1))); pagers[i.closest('[data-pager]').dataset.pager].go(n); }
+});
+document.addEventListener('change', e => {
+  const i = e.target.closest('[data-pager] [data-pg-input]');
+  if (i) { const n = Math.min(+i.max, Math.max(1, Math.round(+i.value || 1))); pagers[i.closest('[data-pager]').dataset.pager].go(n); }
+  const sel = e.target.closest('[data-pager] [data-per]');
+  if (sel) { localStorage.setItem('me3-per', sel.value); pagers[sel.closest('[data-pager]').dataset.pager].per(+sel.value); }
+});
+const perPage = () => +(localStorage.getItem('me3-per') || 24);
+const scrollTo_ = el => { const r = el.getBoundingClientRect(); if (r.top < 70) window.scrollBy({top: r.top - 90, behavior: 'smooth'}); };
+
 // ================= search =================
-const PAGE = 50;
-let kind = '', offset = 0, seq = 0, timer, lastResults = [];
+let kind = '', page = 1, seq = 0, timer, lastResults = [];
 const EXAMPLES = ['fee receipt from last semester', 'screenshots from this week', 'pdf larger than 5MB', 'python code', 'photos from 2025'];
 $('examples').insertAdjacentHTML('beforeend', EXAMPLES.map(e => `<button data-q="${esc(e)}">${esc(e)}</button>`).join(''));
 $('examples').onclick = e => { const b = e.target.closest('[data-q]'); if (b) { $('q').value = b.dataset.q; runSearch(); } };
 
 const day = v => { const [y, m, d] = v.split('-').map(Number); return new Date(y, m - 1, d); };  // local midnight, not UTC
 function params() {
-  const p = new URLSearchParams({q: $('q').value, limit: PAGE, offset});
+  const p = new URLSearchParams({q: $('q').value, limit: perPage(), offset: (page - 1) * perPage()});
   if (kind) p.set('kind', kind);
   if ($('minmb').value !== '') p.set('min_size', Math.round($('minmb').value * 1048576));
   if ($('maxmb').value !== '') p.set('max_size', Math.round($('maxmb').value * 1048576));
@@ -786,8 +876,8 @@ function syncFilterUi() {
   $('q-kbd').classList.toggle('hidden', !!$('q').value);
   $('examples').classList.toggle('hidden', !!$('q').value || !!kind || n > 0);
 }
-function runSearch() { offset = 0; syncFilterUi(); clearTimeout(timer); search(false); }
-function queueSearch() { offset = 0; syncFilterUi(); clearTimeout(timer); timer = setTimeout(() => search(false), 220); }
+function runSearch() { page = 1; syncFilterUi(); clearTimeout(timer); search(false); }
+function queueSearch() { page = 1; syncFilterUi(); clearTimeout(timer); timer = setTimeout(() => search(false), 220); }
 
 function hitHtml(h, i) {
   const isImg = h.kind === 'image' && IMG_EXTS.includes(h.ext);
@@ -826,7 +916,7 @@ $('parsed').onclick = e => {
   runSearch();
 };
 
-async function search(append) {
+async function search() {
   const my = ++seq;  // drop responses that arrive after a newer query was sent
   $('busy').classList.add('on');
   const t0 = performance.now();
@@ -835,7 +925,7 @@ async function search(append) {
   catch (e) {
     if (my !== seq) return;
     $('busy').classList.remove('on');
-    $('results').innerHTML = `<div class="empty">${icon('x')}<b>Search failed</b>${esc(e.message)}</div>`; $('more').classList.add('hidden');
+    $('results').innerHTML = `<div class="empty">${icon('x')}<b>Search failed</b>${esc(e.message)}</div>`; $('pager-s').innerHTML = ''; $('pager-st').innerHTML = '';
     return;
   }
   if (my !== seq) return;
@@ -844,19 +934,17 @@ async function search(append) {
   const total = r.total >= 10001 ? '10,000+' : r.total.toLocaleString();
   $('count').innerHTML = `<b style="color:var(--txt)">${total}</b> result${r.total === 1 ? '' : 's'} · ${ms} ms · ${r.mode === 'hybrid' ? 'keywords + meaning' : 'keywords'}`;
   $('parsed').innerHTML = chipsHtml(r);
-  lastResults = append ? lastResults.concat(r.results) : r.results;
-  const start = append ? lastResults.length - r.results.length : 0;
-  const html = r.results.map((h, i) => hitHtml(h, start + i)).join('');
-  if (append) $('results').insertAdjacentHTML('beforeend', html);
-  else $('results').innerHTML = html || `<div class="empty">${icon('search')}<b>No matching files</b>Try fewer words, another type, or loosen the filters.</div>`;
-  $('more').classList.toggle('hidden', lastResults.length >= Math.min(r.total, 10000) || !r.results.length);
+  lastResults = r.results;
+  $('results').innerHTML = r.results.map((h, i) => hitHtml(h, i)).join('') || `<div class="empty">${icon('search')}<b>No matching files</b>Try fewer words, another type, or loosen the filters.</div>`;
+  $('pager-s').innerHTML = pagerHtml('search', page, Math.min(r.total, 10000), perPage());
+  $('pager-st').innerHTML = r.total > perPage() ? pagerHtml('search', page, Math.min(r.total, 10000), perPage(), true) : '';
 }
-$('more-btn').onclick = () => { offset = lastResults.length; search(true); };
+pagers.search = {go: n => { page = n; search().then(() => scrollTo_($('results'))); }, per: () => { page = 1; search(); }};
 
 function setKind(k) {
   kind = k;
   document.querySelectorAll('#types [data-k]').forEach(b => { b.classList.toggle('on', b.dataset.k === k); b.setAttribute('aria-checked', b.dataset.k === k); });
-  setView(k === 'image' ? 'grid' : (localStorage.getItem('me3-view') || 'list'), false);
+  setView(k === 'image' ? 'grid' : (localStorage.getItem('me3-view') || 'grid'), false);
 }
 $('types').onclick = e => { const b = e.target.closest('[data-k]'); if (b) { setKind(b.dataset.k); runSearch(); } };
 $('f-toggle').onclick = () => { const open = $('filters').classList.toggle('hidden') === false; $('f-toggle').setAttribute('aria-expanded', open); $('f-toggle').classList.toggle('on', open); };
@@ -872,7 +960,7 @@ function setView(v, remember = true) {
   if (remember) localStorage.setItem('me3-view', v);
 }
 document.querySelectorAll('#view button').forEach(b => b.onclick = () => setView(b.dataset.v));
-setView(localStorage.getItem('me3-view') || 'list', false);
+setView(localStorage.getItem('me3-view') || 'grid', false);
 
 document.addEventListener('keydown', e => {
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
@@ -893,6 +981,47 @@ async function stats() {
   loadSources();
 }
 $('stats').onclick = e => { const b = e.target.closest('[data-kind]'); if (b) { showTab('search'); setKind(b.dataset.kind); runSearch(); } };
+
+// ================= sidebar: disks =================
+const HATCH = 'repeating-linear-gradient(135deg, var(--mute) 0 2px, transparent 2px 5px)';  // texture: reserved space is not a file type
+const ago = t => { const s = Math.max(0, Date.now() / 1000 - t); return s < 60 ? 'just now' : s < 3600 ? Math.round(s / 60) + ' min ago' : s < 86400 ? Math.round(s / 3600) + ' h ago' : Math.round(s / 86400) + ' d ago'; };
+let diskTimer = null;
+function diskHtml(d) {
+  const kinds = kindParts(d.by_kind);
+  const parts = kinds.concat(
+    d.reserved > 0 ? [{key: 'reserved', label: 'Reserved & unreadable', value: d.reserved, color: HATCH, fig: fmt(d.reserved)}] : [],
+    [{key: 'free', label: 'Free', value: d.free, color: 'var(--line2)', fig: fmt(d.free)}]);
+  const order = p => p.mount === '/' ? 0 : p.fstype === 'swap' ? 2 : 1;
+  const mounts = d.partitions.slice().sort((a, b) => order(a) - order(b) || b.size - a.size).map(p => p.fstype === 'swap' ? `swap ${fmt(p.size)}`
+    : `<b style="color:var(--soft)">${esc(p.mount)}</b> ${fmt(p.used)} of ${fmt(p.fs_total)}`).join(' · ');
+  const full = d.used + d.free ? d.used / (d.used + d.free) : 0;  // same as df / the file manager
+  return `<div class="disk">
+    <div class="disk-h">${icon('hdd')}<div style="min-width:0"><b>${esc(d.system ? 'System disk' : d.label || d.model)}</b><small class="ell" title="${esc(d.model)}">${esc(d.model)}</small><small>${esc(d.kind)} · ${fmt(d.size)}</small></div>
+      <span class="pill ${full > 0.9 ? 'bad' : full > 0.75 ? 'warn' : ''}">${Math.round(full * 100)}% full</span></div>
+    <div class="big"><div><b>${fmt(d.used)}</b><small>used</small></div><div><b>${fmt(d.free)}</b><small>free</small></div></div>
+    ${d.scanned ? segBar(parts, d.size, {thin: true})
+      : segBar([{key: 'used', label: 'Used (reading what’s inside…)', value: d.size - d.free, color: HATCH, fig: fmt(d.size - d.free)}, parts[parts.length - 1]], d.size, {thin: true})}
+    <div class="parts">${mounts}${d.trash > 1048576 ? `<br>${fmt(d.trash)} sitting in Trash` : ''}${d.reserved > 0 && d.scanned ? `<br>Reserved &amp; unreadable: space the filesystem keeps back, plus folders only an admin can read.` : ''}</div>
+    ${d.folders.length ? `<details><summary>Biggest folders</summary>${rankBars(d.folders.map(f => ({label: f.path.split('/').pop() || f.path, title: f.path, value: f.bytes, fig: fmt(f.bytes), tip: `${fmt(f.bytes)} · ${pctTxt(f.bytes, d.size)} of the disk`})))}</details>` : ''}
+  </div>`;
+}
+async function loadDisks() {
+  clearTimeout(diskTimer);
+  let r;
+  try { r = await J('/api/disks'); } catch (e) { $('disks').innerHTML = `<small>Couldn’t read disks: ${esc(e.message)}</small>`; return; }
+  const sc = r.scan;
+  $('disk-state').innerHTML = sc.running ? '<span class="pill warn"><span class="spin"></span>scanning</span>' : sc.error ? '<span class="pill bad">scan failed</span>' : '';
+  $('disks').innerHTML = (r.disks.map(diskHtml).join('') || '<small>No disks found.</small>')
+    + `<div class="disk-foot"><span>${sc.running ? `Reading ${(sc.files || 0).toLocaleString()} files${sc.current ? ' on ' + esc(sc.current) : ''}…`
+        : sc.error ? esc(sc.error) : sc.finished ? `Checked ${ago(sc.finished)}${sc.seconds != null ? ` in ${Math.round(sc.seconds)} s` : ''}` : ''}</span>
+      <button class="btn-sm" id="disk-rescan" ${sc.running ? 'disabled' : ''}>${icon('refresh')} Rescan</button></div>`;
+  diskTimer = setTimeout(loadDisks, sc.running ? 3000 : 60000);
+}
+$('disks').onclick = async e => {
+  if (!e.target.closest('#disk-rescan')) return;
+  try { await post('/api/disks/rescan', {}); } catch (err) { toast(err.message, 'bad'); }
+  loadDisks();
+};
 
 // ================= sidebar: sources =================
 async function loadSources() {
@@ -973,23 +1102,38 @@ $('add-btn').onclick = addSource;
 
 // ================= cleanup =================
 let dupGroups = [], dupKind = '';
-function renderDups(d, append) {
-  dupGroups = append ? dupGroups.concat(d.groups) : d.groups;
-  const start = append ? dupGroups.length - d.groups.length : 0;
-  $('dup-count').textContent = d.total_groups ? `${d.total_groups.toLocaleString()} groups · ${fmt(d.wasted_bytes)} could be freed${dupKind ? ` · showing ${d.matching.toLocaleString()} ${KIND_LABEL[dupKind] || dupKind}` : ''}` : '';
+let dupData = null, dupPage = 1;
+const shortDir = p => { const d = p.slice(0, p.lastIndexOf('/')) || '/', parts = d.split('/').filter(Boolean); return parts.length > 3 ? '…/' + parts.slice(-3).join('/') : d; };  // folder, trimmed from the left
+function renderDups(d) {
+  if (d) { dupData = d; dupGroups = d.groups; dupPage = 1; }
+  d = dupData; if (!d) return;
+  $('dup-count').textContent = d.total_groups ? `${d.total_groups.toLocaleString()} groups · ${fmt(d.wasted_bytes)} could be freed${dupKind ? ` · ${d.matching.toLocaleString()} ${KIND_LABEL[dupKind] || dupKind}` : ''}` : '';
   const kinds = Object.entries(d.kinds || {}).sort((a, b) => b[1] - a[1]);
   $('dup-types').classList.toggle('hidden', kinds.length < 2);
   $('dup-types').innerHTML = `<button data-dk="" class="${dupKind ? '' : 'on'}">All <span class="v">${d.total_groups}</span></button>` +
     kinds.map(([k, n]) => `<button data-dk="${esc(k)}" class="${dupKind === k ? 'on' : ''}">${icon(KIND_ICON[k] || 'file')}${esc(KIND_LABEL[k] || k)} <span class="v">${n}</span></button>`).join('');
-  const html = d.groups.map((g, j) => { const gi = start + j, isImg = g.kind === 'image' && IMG_EXTS.includes(g.ext);
-    return `<div class="grp"><div class="hd"><b><span style="color:${KIND_COLOR[g.kind]}">${icon(KIND_ICON[g.kind] || 'file')}</span> ${g.files.length} copies · ${fmt(g.size)} each · <span style="color:var(--warn)">${fmt(g.wasted)} wasted</span></b>
-        <span class="row" style="flex:none">${g.remote ? `<span class="pill">${icon('drive')} Google Drive</span>` : ''}${g.likely ? '<span class="pill warn" title="Google Docs have no checksum; their text is identical">likely: same text</span>' : ''}<button class="btn-pri btn-sm" data-compare="${gi}">${icon('eye')} Compare copies</button>${g.remote ? '<button class="btn-sm" disabled title="This app has read-only access to Drive: delete the extra copy in Google Drive">Delete in Drive</button>' : trashBtn(g.files.slice(1).map(f => f.id))}</span></div>
-      ${g.files.map((f, i) => `<div class="frow"><span class="row" style="gap:10px;min-width:0;flex:1;flex-wrap:nowrap">${isImg ? `<img class="dthumb" loading="lazy" src="/api/thumb/${f.id}" alt="" data-view="${f.id}">` : ''}<span class="pth">${i === 0 ? '<span class="keep">KEEP (oldest)</span>' : ''}${esc(f.path)}</span></span><button class="btn-sm" data-view="${f.id}">${icon('eye')} View</button></div>`).join('')}</div>`; }).join('');
-  if (append) $('cl-dup').insertAdjacentHTML('beforeend', html);
-  else $('cl-dup').innerHTML = html || `<div class="empty" style="padding:16px">${icon('copy')}<b>No duplicates found</b></div>`;
+  const per = perPage(), pages = Math.max(1, Math.ceil(dupGroups.length / per));
+  dupPage = Math.min(dupPage, pages);
+  const start = (dupPage - 1) * per;
+  const cards = dupGroups.slice(start, start + per).map((g, j) => {
+    const gi = start + j, isImg = g.kind === 'image' && IMG_EXTS.includes(g.ext);
+    const name = g.files[0].path.split('/').pop();
+    const top = isImg ? `<div class="pics">${g.files.slice(0, 3).map(f => `<img loading="lazy" src="/api/thumb/${f.id}" alt="" data-view="${f.id}">`).join('')}</div>`
+      : `<div class="ico" style="color:${KIND_COLOR[g.kind]}">${icon(KIND_ICON[g.kind] || 'file')}</div>`;
+    const locs = g.files.slice(0, 3).map((f, i) => `<span title="${esc(f.path)}">${i === 0 ? '<b style="color:var(--ok)">keep</b> ' : ''}${esc(shortDir(f.path))}</span>`).join('') + (g.files.length > 3 ? `<span>+${g.files.length - 3} more</span>` : '');
+    return `<div class="dcard">${top}
+      <div class="nm" title="${esc(name)}">${esc(name)}</div>
+      <div class="row" style="gap:5px"><span class="pill">${g.files.length} copies</span><span class="pill">${fmt(g.size)} each</span><span class="pill warn">${fmt(g.wasted)} wasted</span>${g.remote ? `<span class="pill">${icon('drive')} Drive</span>` : ''}${g.likely ? '<span class="pill warn" title="Google Docs have no checksum; their text is identical">likely</span>' : ''}</div>
+      <div class="locs">${locs}</div>
+      <div class="acts"><button class="btn-pri btn-sm" data-compare="${gi}">${icon('eye')} Compare</button>${g.remote ? '<button class="btn-sm" disabled title="Read-only access to Drive: delete the extra copy in Google Drive">In Drive</button>' : trashBtn(g.files.slice(1).map(f => f.id))}</div></div>`;
+  }).join('');
+  $('cl-dup').innerHTML = cards ? `<div class="cards">${cards}</div>` : `<div class="empty" style="padding:16px">${icon('copy')}<b>No duplicates found</b></div>`;
+  $('pager-d').innerHTML = pagerHtml('dups', dupPage, dupGroups.length, per);
+  $('pager-dt').innerHTML = dupGroups.length > per ? pagerHtml('dups', dupPage, dupGroups.length, per, true) : '';
 }
+pagers.dups = {go: n => { dupPage = n; renderDups(); scrollTo_($('cl-dup')); }, per: () => { dupPage = 1; renderDups(); }};
 async function loadDups(append) {
-  try { renderDups(await J(`/api/cleanup/duplicates?kind=${encodeURIComponent(dupKind)}`), false); }
+  try { renderDups(await J(`/api/cleanup/duplicates?kind=${encodeURIComponent(dupKind)}`)); }
   catch (e) { toast(e.message, 'bad'); }
 }
 $('dup-types').onclick = e => { const b = e.target.closest('[data-dk]'); if (b) { dupKind = b.dataset.dk; loadDups(false); } };
@@ -1006,7 +1150,7 @@ async function loadCleanup() {
       {label: 'Files over 50 MB', value: sum.large_bytes, fig: `${fmt(sum.large_bytes)} · ${pctTxt(sum.large_bytes, tot)}`, tip: 'Worth a look: not necessarily junk'},
       {label: 'Old media', value: sum.stale_media_bytes, fig: `${fmt(sum.stale_media_bytes)} · ${pctTxt(sum.stale_media_bytes, tot)}`, tip: 'Photos, videos, music and archives untouched for a year'},
       {label: 'Everything indexed', value: tot, fig: fmt(tot), color: 'var(--line2)', tip: 'The whole index, for scale'}]);
-    dupKind = ''; renderDups(dup, false);
+    dupKind = ''; renderDups(dup);
     const list = a => a.map(f => `<div class="frow"><span class="pth">${esc(f.path)}</span><span class="row" style="flex:none;gap:8px"><small>${fmt(f.size)}</small><button class="btn-sm" data-view="${f.id}">${icon('eye')} View</button>${trashBtn([f.id])}</span></div>`).join('') || '<small>Nothing found.</small>';
     $('cl-large').innerHTML = list(big); $('cl-stale').innerHTML = list(stale);
   } catch (e) { toast(e.message, 'bad'); }
@@ -1018,9 +1162,9 @@ $('t-cleanup').addEventListener('click', async e => {
   const c = e.target.closest('[data-compare]'); if (c) return compareDup(dupGroups[+c.dataset.compare]);
   const b = e.target.closest('[data-trash]'); if (!b) return;
   const ids = b.dataset.trash.split(',').filter(Boolean).map(Number); if (!ids.length) return;
-  const ok = await confirmBox(`Move ${ids.length} file${ids.length > 1 ? 's' : ''} to trash?`, 'Not sure? Cancel and use “View” or “Compare copies” first.\n\nThey go to the app’s trash folder (data/trash/) with a record of their original location, so this can be undone.', 'Move to trash', true);
+  const ok = await confirmBox(`Move ${ids.length} file${ids.length > 1 ? 's' : ''} to trash?`, 'Not sure? Cancel and use “View” or “Compare copies” first.\n\nThey go to your computer’s Trash, so you can restore them from the file manager.', 'Move to trash', true);
   if (!ok) return;
-  try { const r = await post('/api/cleanup/trash', {ids}); toast(`Moved ${r.moved} file(s)` + (r.trash_dir ? ' to ' + r.trash_dir : ''), 'ok'); }
+  try { const r = await post('/api/cleanup/trash', {ids}); toast(`Moved ${r.moved} file(s) to Trash`, 'ok'); if (r.errors?.length) toast(`${r.errors.length} not moved: ${r.errors[0].error}`, 'bad'); }
   catch (err) { toast(err.message, 'bad'); }
   loadCleanup(); stats();
 });
@@ -1082,7 +1226,7 @@ fetch('/api/me').then(r => r.ok ? r.json() : Promise.reject()).then(u => {
 // ================= start =================
 showTab(location.hash.slice(1));
 setKind('');
-runSearch(); stats();
+runSearch(); stats(); loadDisks();
 setInterval(stats, 4000);
 </script>
 </body>
