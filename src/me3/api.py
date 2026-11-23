@@ -65,6 +65,52 @@ def stats():
             "semantic": embed.available(), "embedding": embed.pending_counts(c)}
 
 
+@app.get("/api/insights")
+def insights(months: int = Query(24, ge=6, le=120), top: int = Query(10, ge=3, le=50)):
+    """Aggregates for the Overview charts: activity per month, biggest folders, size buckets, sources, index progress."""
+    import os
+    import time as _t
+    from collections import defaultdict
+    c = db.get()
+    now = _t.localtime()
+    keys = []
+    y, m = now.tm_year, now.tm_mon
+    for _ in range(months):  # oldest -> newest, every month present even when empty
+        keys.append(f"{y:04d}-{m:02d}")
+        y, m = (y, m - 1) if m > 1 else (y - 1, 12)
+    keys.reverse()
+    per = {r[0]: (r[1], r[2]) for r in c.execute(
+        "SELECT strftime('%Y-%m', mtime, 'unixepoch', 'localtime') AS ym, count(*), coalesce(sum(size),0) FROM files "
+        "WHERE ym >= ? GROUP BY ym", (keys[0],))}
+    timeline = [{"month": k, "n": per.get(k, (0, 0))[0], "bytes": per.get(k, (0, 0))[1]} for k in keys]
+
+    roots = {r["id"]: (r["root"] or "/", r["name"], r["kind"]) for r in c.execute("SELECT id, root, name, kind FROM sources")}
+    folders: dict = defaultdict(lambda: [0, 0])
+    for r in c.execute("SELECT source_id, path, size FROM files"):
+        root, name, kind = roots.get(r["source_id"], ("/", "?", "local"))
+        rel = os.path.relpath(r["path"], root) if kind == "local" else r["path"].split("#")[0].lstrip("/")
+        parts = [p for p in rel.replace("\\", "/").split("/")[:-1] if p]
+        key = (name, "/".join(parts[:2]) or "(top level)")
+        folders[key][0] += 1
+        folders[key][1] += r["size"]
+    big = sorted(folders.items(), key=lambda kv: -kv[1][1])[:top]
+
+    edges = [(0, "< 100 KB"), (100 << 10, "100 KB – 1 MB"), (1 << 20, "1 – 10 MB"), (10 << 20, "10 – 100 MB"), (100 << 20, "100 MB – 1 GB"), (1 << 30, "> 1 GB")]
+    sizes = []
+    for i, (lo, label) in enumerate(edges):
+        hi = edges[i + 1][0] if i + 1 < len(edges) else 1 << 62
+        n, b = c.execute("SELECT count(*), coalesce(sum(size),0) FROM files WHERE size >= ? AND size < ?", (lo, hi)).fetchone()
+        sizes.append({"label": label, "n": n, "bytes": b})
+
+    srcs = [dict(r) for r in c.execute("SELECT s.name, s.kind, count(f.id) AS n, coalesce(sum(f.size),0) AS bytes "
+                                        "FROM sources s LEFT JOIN files f ON f.source_id=s.id GROUP BY s.id ORDER BY bytes DESC")]
+    p = c.execute("SELECT sum(extracted=1) AS ex, sum(extracted IN (0,1,3)) AS exable, sum(embedded=1) AS em, "
+                  "sum(embedded IN (0,1)) AS emable FROM files").fetchone()
+    return {"timeline": timeline, "folders": [{"source": k[0], "folder": k[1], "n": v[0], "bytes": v[1]} for k, v in big],
+            "sizes": sizes, "sources": srcs,
+            "progress": {"text_done": p["ex"] or 0, "text_total": p["exable"] or 0, "meaning_done": p["em"] or 0, "meaning_total": p["emable"] or 0}}
+
+
 @app.get("/api/sources")
 def list_sources():
     c = db.get()

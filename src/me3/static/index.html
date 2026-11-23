@@ -15,7 +15,7 @@
     --ok:#3ecf8e; --warn:#f0b34a; --bad:#ef6b73; --mark:#3a4a1c; --markt:#e1f5a5;
     --shadow:0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.25); --head:system-ui,-apple-system,"Segoe UI",sans-serif;
     --glow:radial-gradient(1200px 500px at 85% -10%, rgba(110,168,255,.10), transparent 60%);
-    --k-document:#6ea8ff; --k-image:#3ecf8e; --k-video:#f07a6b; --k-audio:#f0b34a; --k-code:#b18cff; --k-archive:#5ec8d8; --k-other:#8d97aa;
+    --k-document:#3987e5; --k-image:#d95926; --k-video:#199e70; --k-audio:#c98500; --k-code:#d55181; --k-archive:#0ca30c; --k-other:#6b7385;
   }
   [data-theme="light"] {
     --bg:#f4f6f9; --bg2:#eef1f5; --panel:#ffffff; --panel2:#f3f5f9; --line:#e1e5ec; --line2:#cfd5df;
@@ -23,7 +23,7 @@
     --ok:#12965f; --warn:#b7791f; --bad:#d93a45; --mark:#fbefa0; --markt:#4a3b00;
     --shadow:0 1px 2px rgba(16,24,40,.06), 0 6px 20px rgba(16,24,40,.06);
     --glow:radial-gradient(1200px 500px at 85% -10%, rgba(37,99,235,.07), transparent 60%);
-    --k-document:#1d5fd6; --k-image:#0f8a57; --k-video:#c9412f; --k-audio:#a86400; --k-code:#6d3fd1; --k-archive:#0b7f93; --k-other:#5f6a7d;
+    --k-document:#2a78d6; --k-image:#eb6834; --k-video:#1baf7a; --k-audio:#eda100; --k-code:#e87ba4; --k-archive:#008300; --k-other:#8a93a3;
   }
   [data-theme="royal"] {
     --bg:#110a22; --bg2:#150d2b; --panel:#1b1235; --panel2:#241843; --line:#352657; --line2:#4a3775;
@@ -31,9 +31,9 @@
     --ok:#7fd8a7; --warn:#f1c25b; --bad:#f08a8f; --mark:#4d3b12; --markt:#ffe9a8;
     --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(10,0,30,.45); --head:"Cormorant Garamond",Georgia,"Times New Roman",serif;
     --glow:radial-gradient(900px 420px at 80% -10%, rgba(217,180,74,.13), transparent 60%), radial-gradient(800px 400px at 0% 0%, rgba(183,132,255,.10), transparent 60%);
-    --k-document:#8fb6ff; --k-image:#7fd8a7; --k-video:#f59a8a; --k-audio:#f1c25b; --k-code:#c9a2ff; --k-archive:#7fd6e0; --k-other:#b3a5cc;
+    --k-document:#3987e5; --k-image:#d95926; --k-video:#199e70; --k-audio:#c98500; --k-code:#d55181; --k-archive:#0ca30c; --k-other:#7a6d96;
   }
-  [data-theme="royal"] .card { border-image:linear-gradient(135deg, rgba(217,180,74,.55), rgba(74,55,117,.6) 40%, rgba(74,55,117,.6) 60%, rgba(217,180,74,.35)) 1; border-radius:0; }
+  [data-theme="royal"] .card, [data-theme="royal"] .kpi { border-image:linear-gradient(135deg, rgba(217,180,74,.55), rgba(74,55,117,.6) 40%, rgba(74,55,117,.6) 60%, rgba(217,180,74,.35)) 1; border-radius:0; }
   [data-theme="royal"] h1.brand b, [data-theme="royal"] .card h3 { font-family:var(--head); letter-spacing:.04em; }
   [data-theme="royal"] .card h3 { font-size:15px; text-transform:none; color:var(--acc); font-weight:600; }
   [data-theme="royal"] h1.brand b { font-size:22px; color:var(--acc); }
@@ -108,13 +108,6 @@
   .big { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
   .big div { background:var(--panel2); border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
   .big b { display:block; font-size:20px; font-weight:700; font-family:var(--head); }
-  .kinds { display:grid; gap:9px; margin-top:12px; }
-  .kinds button { display:block; width:100%; text-align:left; padding:0; border:0; background:transparent; }
-  .kinds button:hover .bar i { filter:brightness(1.2); }
-  .kinds .kv { display:flex; justify-content:space-between; font-size:12.5px; }
-  .kinds .kv span:first-child { text-transform:capitalize; display:flex; align-items:center; gap:7px; }
-  .bar { height:5px; border-radius:3px; background:var(--panel2); overflow:hidden; margin-top:4px; }
-  .bar i { display:block; height:100%; min-width:2px; border-radius:3px; transition:width .4s; }
   .status-line { display:flex; justify-content:space-between; align-items:center; font-size:12.5px; margin:4px 0; }
 
   /* ---------- sidebar: sources ---------- */
@@ -221,6 +214,51 @@
   .modal p { margin:0 0 18px; color:var(--soft); white-space:pre-line; }
   .modal .row { justify-content:flex-end; }
 
+  /* ---------- charts ---------- */
+  #tip { position:fixed; z-index:70; pointer-events:none; background:var(--panel); border:1px solid var(--line2); border-radius:8px; padding:7px 10px; font-size:12.5px; box-shadow:var(--shadow); max-width:300px; opacity:0; transition:opacity .08s; }
+  #tip.on { opacity:1; } #tip b { display:block; font-size:13px; }
+  .kpis { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:16px; }
+  .kpi { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px 16px; box-shadow:var(--shadow); }
+  .kpi small { display:block; } .kpi b { display:block; font-size:28px; line-height:1.15; font-family:var(--head); margin:2px 0; }
+  .kpi .sub { font-size:12px; color:var(--mute); }
+  .cgrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+  .cgrid .card { margin:0; } .cgrid .span2 { grid-column:1 / -1; }
+  .card .hint { font-weight:400; text-transform:none; letter-spacing:0; font-size:12px; color:var(--mute); }
+  .seg-bar { display:flex; gap:2px; height:30px; border-radius:6px; overflow:hidden; }
+  .seg-bar.thin { height:10px; border-radius:4px; }
+  .seg-bar i { display:block; min-width:3px; height:100%; transition:filter .12s; } .seg-bar i:first-child { border-radius:4px 0 0 4px; } .seg-bar i:last-child { border-radius:0 4px 4px 0; }
+  .seg-bar i:hover { filter:brightness(1.15); }
+  .legend { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:10px; font-size:12.5px; }
+  .legend button { display:inline-flex; gap:6px; align-items:center; padding:2px 4px; border:0; background:transparent; color:var(--soft); }
+  .legend button:hover { color:var(--txt); background:transparent; text-decoration:underline; }
+  .legend .sw { width:10px; height:10px; border-radius:3px; flex:none; }
+  .legend .v { color:var(--mute); }
+  .rank { display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,2fr) auto; gap:8px 12px; align-items:center; font-size:12.5px; }
+  .rank .nm { color:var(--soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .rank .nm small { display:block; font-size:11px; }
+  .rank .tr { height:12px; display:flex; align-items:center; } .rank .tr i { display:block; height:12px; border-radius:0 4px 4px 0; background:var(--acc); min-width:2px; }
+  .rank .fig { color:var(--txt); font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap; }
+  .rank .row-hit { display:contents; }
+  .meter { height:10px; border-radius:5px; background:var(--panel2); overflow:hidden; border:1px solid var(--line); }
+  .meter i { display:block; height:100%; border-radius:4px; background:var(--acc); transition:width .4s; }
+  .meters { display:grid; gap:14px; }
+  .meters .mh { display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:5px; }
+  .cols { position:relative; height:190px; display:grid; grid-template-rows:1fr auto; }
+  .cols .plot { position:relative; display:flex; align-items:flex-end; gap:2px; border-bottom:1px solid var(--line2); padding-left:44px; }
+  .cols .gl { position:absolute; left:44px; right:0; border-top:1px dashed var(--line); }
+  .cols .gl span { position:absolute; left:-44px; top:-8px; width:38px; text-align:right; font-size:10.5px; color:var(--mute); }
+  .cols .c { flex:1; height:100%; display:flex; align-items:flex-end; cursor:default; position:relative; z-index:1; }
+  .cols .c i { display:block; width:100%; background:var(--acc); border-radius:4px 4px 0 0; min-height:0; }
+  .cols .c:hover i { filter:brightness(1.18); } .cols .c:hover { background:color-mix(in srgb, var(--acc) 7%, transparent); }
+  .cols .xl { display:flex; gap:2px; padding-left:44px; font-size:10.5px; color:var(--mute); margin-top:5px; }
+  .cols .xl span { flex:1; text-align:center; white-space:nowrap; overflow:visible; }
+  .metric-tg { margin-left:auto; } .metric-tg button { line-height:1.3; font-size:11.5px; padding:3px 9px; text-transform:none; letter-spacing:0; }
+  .tbl-tg { font-size:12px; margin-top:10px; }
+  table.dt { width:100%; border-collapse:collapse; font-size:12.5px; margin-top:8px; }
+  table.dt th, table.dt td { text-align:left; padding:5px 6px; border-bottom:1px solid var(--line); } table.dt td.n { text-align:right; font-variant-numeric:tabular-nums; }
+  table.dt th { color:var(--mute); font-weight:600; }
+  @media (max-width: 1020px) { .kpis { grid-template-columns:repeat(2,minmax(0,1fr)); } .cgrid { grid-template-columns:1fr; } }
+
   /* ---------- file viewer / compare ---------- */
   .modal .box.wide { width:min(1180px,96vw); height:min(88vh,920px); display:grid; grid-template-rows:auto minmax(0,1fr) auto; padding:0; overflow:hidden; }
   .vh { display:flex; gap:12px; align-items:flex-start; padding:16px 18px; border-bottom:1px solid var(--line); }
@@ -291,6 +329,7 @@
   <symbol id="i-all" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></symbol>
   <symbol id="i-out" viewBox="0 0 24 24"><path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 17l5-5-5-5M15 12H3"/></symbol>
   <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
   <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
   <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
   <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
@@ -300,6 +339,7 @@
 <header>
   <h1 class="brand"><span class="logo"><svg class="i"><use href="#i-search"/></svg></span><span><b>ME3</b> <span>File Intelligence</span><small>private by design · AI runs on your machine</small></span></h1>
   <nav class="tabs-main" id="nav" aria-label="Sections">
+    <button data-t="overview"><svg class="i"><use href="#i-chart"/></svg><span>Overview</span></button>
     <button data-t="search" class="on"><svg class="i"><use href="#i-search"/></svg><span>Search</span></button>
     <button data-t="cleanup"><svg class="i"><use href="#i-broom"/></svg><span>Cleanup</span></button>
     <button data-t="organise"><svg class="i"><use href="#i-spark"/></svg><span>Organise</span></button>
@@ -339,8 +379,22 @@
 </aside>
 
 <section>
+ <!-- ===== Overview ===== -->
+ <div id="t-overview" class="hidden">
+  <div class="kpis" id="ov-kpis"></div>
+  <div class="cgrid">
+    <div class="card span2"><h3>What’s taking up space <span class="hint">share of total size, by file type · click a type to search it</span></h3><div id="ov-types"></div></div>
+    <div class="card span2"><h3>Activity over time <span class="hint">files last modified each month</span>
+      <span class="seg metric-tg" id="ov-metric"><button data-m="n" class="on">Files</button><button data-m="bytes">Size</button></span></h3><div id="ov-time"></div></div>
+    <div class="card"><h3>Biggest folders <span class="hint">by total size</span></h3><div id="ov-folders"></div></div>
+    <div class="card"><h3>File sizes <span class="hint">how many files in each size range</span></h3><div id="ov-sizes"></div></div>
+    <div class="card"><h3>Where your files live</h3><div id="ov-sources"></div></div>
+    <div class="card"><h3>Index health</h3><div id="ov-health"></div></div>
+  </div>
+ </div>
+
  <!-- ===== Search ===== -->
- <div id="t-search">
+ <div id="t-search" class="hidden">
   <div class="card">
     <div class="sbox">
       <svg class="i lead"><use href="#i-search"/></svg>
@@ -391,6 +445,7 @@
     <div class="tiles" id="cl-sum">
       <div class="tile"><b>—</b><small>duplicate copies</small></div><div class="tile"><b>—</b><small>files over 50 MB</small></div><div class="tile"><b>—</b><small>old media</small></div>
     </div>
+    <div id="cl-chart"></div>
     <small style="display:block;margin-top:10px">“Analyse” hashes candidate duplicates, which can take a few seconds on big indexes. “Move to trash” puts files in <code>data/trash/&lt;time&gt;/</code> with a list of where they came from, so it can be undone. Only local files can be moved.</small>
   </div>
   <div class="card"><h3>Duplicate files</h3><div id="cl-dup"><small>Run Analyse to look for duplicates.</small></div></div>
@@ -435,6 +490,7 @@
 </main>
 
 <div class="toasts" id="toasts" aria-live="polite"></div>
+<div id="tip" role="tooltip"></div>
 
 <script>
 // ================= helpers =================
@@ -471,6 +527,98 @@ async function copyText(t) {
   catch { toast('Could not copy: ' + t); }
 }
 
+
+
+// ================= charts (plain HTML/SVG, no libraries: works offline) =================
+// tooltip: any element with data-tip (already-escaped HTML) shows it on hover / focus
+(() => {
+  const tip = $('tip');
+  const place = (x, y) => { const w = tip.offsetWidth, h = tip.offsetHeight; tip.style.left = Math.min(x + 14, innerWidth - w - 8) + 'px'; tip.style.top = (y + h + 22 > innerHeight ? y - h - 12 : y + 16) + 'px'; };
+  document.addEventListener('mousemove', e => {
+    const t = e.target.closest && e.target.closest('[data-tip]');
+    if (!t) { tip.classList.remove('on'); return; }
+    if (tip._src !== t) { tip.innerHTML = t.getAttribute('data-tip'); tip._src = t; }
+    tip.classList.add('on'); place(e.clientX, e.clientY);
+  });
+  document.addEventListener('focusin', e => { const t = e.target.closest('[data-tip]'); if (!t) return; const r = t.getBoundingClientRect(); tip.innerHTML = t.getAttribute('data-tip'); tip._src = t; tip.classList.add('on'); place(r.left, r.bottom); });
+  document.addEventListener('focusout', () => tip.classList.remove('on'));
+  document.addEventListener('scroll', () => tip.classList.remove('on'), true);
+})();
+const tipAttr = html => `data-tip="${esc(html)}"`;
+const pct = (a, b) => b ? (100 * a / b) : 0;
+const pctTxt = (a, b) => { const v = pct(a, b); return v === 0 ? '0%' : v < 1 ? '<1%' : Math.round(v) + '%'; };
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// one whole split into parts (storage by type); legend names every part, figures included
+function segBar(parts, total, {thin = false, legend = true, onPick = ''} = {}) {
+  const shown = parts.filter(p => p.value > 0), sumv = shown.reduce((a, p) => a + p.value, 0) || 1;  // fill the bar exactly
+  return `<div class="seg-bar ${thin ? 'thin' : ''}" role="img" aria-label="${esc(shown.map(p => `${p.label} ${pctTxt(p.value, total)}`).join(', '))}">
+    ${shown.map(p => `<i style="flex:${Math.max(p.value / sumv, 0.004)} 1 0;background:${p.color}" ${tipAttr(`<b>${esc(p.label)}</b>${esc(p.fig)} · ${pctTxt(p.value, total)}`)}></i>`).join('')}</div>
+    ${legend ? `<div class="legend">${shown.map(p => `<button ${onPick ? `data-${onPick}="${esc(p.key)}"` : 'tabindex="-1"'}><span class="sw" style="background:${p.color}"></span>${esc(p.label)} <span class="v">${pctTxt(p.value, total)} · ${esc(p.fig)}</span></button>`).join('')}</div>` : ''}`;
+}
+// ranked horizontal bars, one hue, figure printed on every row
+function rankBars(rows) {
+  const max = Math.max(1, ...rows.map(r => r.value));
+  return `<div class="rank">${rows.map(r => `<span class="nm" title="${esc(r.title || r.label)}">${esc(r.label)}${r.sub ? `<small>${esc(r.sub)}</small>` : ''}</span>
+    <span class="tr" ${tipAttr(`<b>${esc(r.title || r.label)}</b>${esc(r.tip || r.fig)}`)}><i style="width:${Math.max(pct(r.value, max), 0.6)}%;${r.color ? 'background:' + r.color : ''}"></i></span>
+    <span class="fig">${esc(r.fig)}</span>`).join('')}</div>`;
+}
+function niceMax(v) { if (v <= 0) return 1; const e = Math.pow(10, Math.floor(Math.log10(v))), f = v / e; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * e; }
+// columns over time with a recessive grid, tooltip per column, and an optional table view
+function columns(points, metric) {
+  const val = p => p[metric], fmtv = v => metric === 'bytes' ? fmt(v) : v.toLocaleString();
+  const top = niceMax(Math.max(...points.map(val)));
+  const grid = [0.5, 1].map(f => `<div class="gl" style="bottom:${f * 100}%"><span>${metric === 'bytes' ? fmt(top * f).replace('.0 ', ' ') : (top * f).toLocaleString()}</span></div>`).join('');
+  const label = k => { const [y, m] = k.split('-').map(Number); return `${MONTHS[m - 1]} ${y}`; };
+  return `<div class="cols"><div class="plot">${grid}${points.map(p => `<div class="c" tabindex="0" ${tipAttr(`<b>${label(p.month)}</b>${p.n.toLocaleString()} file${p.n === 1 ? '' : 's'} · ${fmt(p.bytes)}`)}><i style="height:${pct(val(p), top)}%"></i></div>`).join('')}</div>
+    <div class="xl">${points.map((p, i) => { const [y, m] = p.month.split('-').map(Number); return `<span>${i % 3 === 0 || i === points.length - 1 ? MONTHS[m - 1] + (m === 1 || i === 0 ? ' ' + String(y).slice(2) : '') : ''}</span>`; }).join('')}</div></div>
+    <details class="tbl-tg"><summary>Show as table</summary><table class="dt"><tr><th>Month</th><th style="text-align:right">Files</th><th style="text-align:right">Size</th></tr>
+      ${points.slice().reverse().map(p => `<tr><td>${label(p.month)}</td><td class="n">${p.n.toLocaleString()}</td><td class="n">${fmt(p.bytes)}</td></tr>`).join('')}</table></details>`;
+}
+function meter(label, done, total, note = '') {
+  return `<div><div class="mh"><span>${esc(label)}</span><span>${total ? `<b>${pctTxt(done, total)}</b> <small>${done.toLocaleString()} of ${total.toLocaleString()}</small>` : '<small>nothing to do</small>'}</span></div>
+    <div class="meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct(done, total))}" aria-label="${esc(label)}"><i style="width:${total ? pct(done, total) : 100}%"></i></div>${note ? `<small>${note}</small>` : ''}</div>`;
+}
+const KIND_ORDER = ['document', 'image', 'video', 'audio', 'code', 'archive', 'other'];  // fixed colour order: colour follows the type, never its rank
+const KIND_LABEL = {document: 'Documents', image: 'Images', video: 'Videos', audio: 'Audio', code: 'Code', archive: 'Archives', other: 'Other'};
+function kindParts(byKind) {
+  const m = Object.fromEntries(byKind.map(k => [k.kind, k]));
+  return KIND_ORDER.filter(k => m[k]).map(k => ({key: k, label: KIND_LABEL[k] || k, value: m[k].bytes, color: KIND_COLOR[k], fig: `${fmt(m[k].bytes)} · ${m[k].n.toLocaleString()} files`}))
+    .sort((a, b) => b.value - a.value);
+}
+
+// ================= overview =================
+let lastStats = null, ovData = null, ovMetric = 'n', ovBusy = false;
+async function loadOverview() {
+  if (ovBusy) return; ovBusy = true;
+  try {
+    const [st, d] = await Promise.all([J('/api/stats'), J('/api/insights')]);
+    lastStats = st; ovData = d; drawOverview();
+  } catch (e) { $('ov-kpis').innerHTML = `<div class="kpi"><small>Couldn’t load overview</small><b>—</b><span class="sub">${esc(e.message)}</span></div>`; }
+  ovBusy = false;
+}
+function drawOverview() {
+  const st = lastStats, d = ovData; if (!st || !d) return;
+  const pr = d.progress, thisMonth = d.timeline[d.timeline.length - 1] || {n: 0, bytes: 0};
+  const mDone = pr.meaning_done, mTot = pr.meaning_total;
+  $('ov-kpis').innerHTML = [
+    ['Files indexed', st.files.toLocaleString(), `across ${d.sources.length} source${d.sources.length === 1 ? '' : 's'}`],
+    ['Total size', fmt(st.bytes), `${fmt(st.files ? st.bytes / st.files : 0)} per file on average`],
+    ['Changed this month', thisMonth.n.toLocaleString(), `${fmt(thisMonth.bytes)} modified`],
+    ['Search by meaning', mTot ? pctTxt(mDone, mTot) : '—', mTot ? `${mDone.toLocaleString()} of ${mTot.toLocaleString()} files ready` : 'no files need it yet'],
+  ].map(([a, b, c]) => `<div class="kpi"><small>${a}</small><b>${b}</b><span class="sub">${c}</span></div>`).join('');
+  $('ov-types').innerHTML = segBar(kindParts(st.by_kind), Math.max(1, st.bytes), {onPick: 'kind'});
+  $('ov-time').innerHTML = columns(d.timeline, ovMetric);
+  $('ov-folders').innerHTML = d.folders.length ? rankBars(d.folders.map(f => ({label: f.folder, sub: f.source, title: `${f.source} › ${f.folder}`, value: f.bytes, fig: fmt(f.bytes), tip: `${fmt(f.bytes)} · ${f.n.toLocaleString()} files · ${pctTxt(f.bytes, st.bytes)} of everything`}))) : '<small>No files yet.</small>';
+  $('ov-sizes').innerHTML = rankBars(d.sizes.map(z => ({label: z.label, value: z.n, fig: z.n.toLocaleString(), tip: `${z.n.toLocaleString()} files · ${fmt(z.bytes)} in total (${pctTxt(z.bytes, st.bytes)} of all space)`})))
+    + `<small style="display:block;margin-top:10px">Bars count files. Hover a bar to see how much space that range uses.</small>`;
+  $('ov-sources').innerHTML = rankBars(d.sources.map(x => ({label: x.name, sub: x.kind === 'gdrive' ? 'Google Drive' : 'this computer', value: x.bytes, fig: fmt(x.bytes), tip: `${x.n.toLocaleString()} files · ${fmt(x.bytes)} · ${pctTxt(x.bytes, st.bytes)} of everything`})));
+  $('ov-health').innerHTML = `<div class="meters">${meter('Text read from documents', pr.text_done, pr.text_total, 'PDFs, Word files, notes and code: makes their contents searchable.')}
+    ${meter('Ready for search by meaning', mDone, mTot, 'Lets you search by description (“photos of a beach”) instead of exact words.')}</div>`;
+}
+$('ov-metric').onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return; ovMetric = b.dataset.m; document.querySelectorAll('#ov-metric button').forEach(x => x.classList.toggle('on', x === b)); drawOverview(); };
+$('ov-types').onclick = e => { const b = e.target.closest('[data-kind]'); if (b) { showTab('search'); setKind(b.dataset.kind); runSearch(); } };
+setInterval(() => { if (!$('t-overview').classList.contains('hidden') && !document.hidden) loadOverview(); }, 15000);
 
 // ================= file viewer (look before you trash) =================
 const BROWSER_IMG = ['jpg','jpeg','png','gif','webp','bmp','avif'];
@@ -577,13 +725,14 @@ document.querySelectorAll('#theme button').forEach(b => b.onclick = () => setThe
 setTheme(document.documentElement.dataset.theme);
 
 // ================= tabs (remembered in the URL hash) =================
-const TABS = ['search', 'cleanup', 'organise', 'privacy'];
+const TABS = ['overview', 'search', 'cleanup', 'organise', 'privacy'];
 function showTab(t) {
-  if (!TABS.includes(t)) t = 'search';
+  if (!TABS.includes(t)) t = 'overview';
   document.querySelectorAll('#nav button').forEach(x => x.classList.toggle('on', x.dataset.t === t));
   TABS.forEach(x => $('t-' + x).classList.toggle('hidden', x !== t));
   if (location.hash.slice(1) !== t) history.replaceState(null, '', '#' + t);
   if (t === 'privacy' && !$('pout').textContent) redact();
+  if (t === 'overview') loadOverview();
 }
 document.querySelectorAll('#nav button').forEach(b => b.onclick = () => showTab(b.dataset.t));
 window.addEventListener('hashchange', () => showTab(location.hash.slice(1)));
@@ -710,12 +859,12 @@ async function stats() {
   let s;
   try { s = await J('/api/stats'); } catch { return; }
   const e = s.embedding || {}, pend = (e.text || 0) + (e.images || 0);
-  const max = Math.max(1, ...s.by_kind.map(k => k.bytes));
   $('idx-state').innerHTML = s.pending_extraction || pend ? '<span class="pill warn"><span class="spin"></span>indexing</span>' : '<span class="pill ok"><span class="dot"></span>up to date</span>';
   $('stats').innerHTML = `<div class="big"><div><b>${s.files.toLocaleString()}</b><small>files</small></div><div><b>${fmt(s.bytes)}</b><small>total size</small></div></div>
     ${s.pending_extraction ? `<div class="status-line"><span>Reading text</span><span class="pill warn">${s.pending_extraction.toLocaleString()} left</span></div>` : ''}
     <div class="status-line"><span>Search by meaning</span>${!s.semantic ? '<span class="pill warn">off</span>' : pend ? `<span class="pill warn">${pend.toLocaleString()} pending</span>` : '<span class="pill ok">ready</span>'}</div>
-    <div class="kinds">${s.by_kind.map(k => `<button data-kind="${esc(k.kind)}" title="Show only ${esc(k.kind)} files"><div class="kv"><span><span class="dot" style="color:${KIND_COLOR[k.kind] || 'var(--mute)'}"></span>${esc(k.kind)}</span><span class="meta">${k.n.toLocaleString()} · ${fmt(k.bytes)}</span></div><div class="bar"><i style="width:${100 * k.bytes / max}%;background:${KIND_COLOR[k.kind] || 'var(--mute)'}"></i></div></button>`).join('')}</div>`;
+    <div style="margin-top:12px"><small style="display:block;margin-bottom:6px">Space by type</small>${segBar(kindParts(s.by_kind), Math.max(1, s.bytes), {thin: true, onPick: 'kind'})}</div>`;
+  lastStats = s;
   loadSources();
 }
 $('stats').onclick = e => { const b = e.target.closest('[data-kind]'); if (b) { showTab('search'); setKind(b.dataset.kind); runSearch(); } };
@@ -806,6 +955,12 @@ async function loadCleanup() {
     const [sum, dup, big, stale] = await Promise.all([J('/api/cleanup/summary'), J('/api/cleanup/duplicates?limit=20'), J('/api/cleanup/large?limit=20&min_mb=50'), J('/api/cleanup/stale?limit=20')]);
     $('cl-sum').innerHTML = [[fmt(sum.duplicate_wasted_bytes), `wasted in ${sum.duplicate_groups} duplicate groups`], [fmt(sum.large_bytes), `in ${sum.large_files} files over 50 MB`], [fmt(sum.stale_media_bytes), `in ${sum.stale_media_files} old media files`]]
       .map(([a, b]) => `<div class="tile"><b>${a}</b><small>${b}</small></div>`).join('');
+    const tot = (lastStats && lastStats.bytes) || 0;
+    if (tot) $('cl-chart').innerHTML = `<small style="display:block;margin:14px 0 8px">Compared with everything indexed (${fmt(tot)}). These groups can overlap, so they aren’t added up.</small>` + rankBars([
+      {label: 'Duplicate copies', value: sum.duplicate_wasted_bytes, fig: `${fmt(sum.duplicate_wasted_bytes)} · ${pctTxt(sum.duplicate_wasted_bytes, tot)}`, color: 'var(--warn)', tip: 'Freed by keeping one copy of each duplicate'},
+      {label: 'Files over 50 MB', value: sum.large_bytes, fig: `${fmt(sum.large_bytes)} · ${pctTxt(sum.large_bytes, tot)}`, tip: 'Worth a look: not necessarily junk'},
+      {label: 'Old media', value: sum.stale_media_bytes, fig: `${fmt(sum.stale_media_bytes)} · ${pctTxt(sum.stale_media_bytes, tot)}`, tip: 'Photos, videos, music and archives untouched for a year'},
+      {label: 'Everything indexed', value: tot, fig: fmt(tot), color: 'var(--line2)', tip: 'The whole index, for scale'}]);
     dupGroups = dup.groups;
     $('cl-dup').innerHTML = dup.groups.map((g, gi) => `<div class="grp"><div class="hd"><b>${g.files.length} copies · ${fmt(g.size)} each · <span style="color:var(--warn)">${fmt(g.wasted)} wasted</span></b>
         <span class="row" style="flex:none"><button class="btn-pri btn-sm" data-compare="${gi}">${icon('eye')} Compare copies</button>${trashBtn(g.files.slice(1).map(f => f.id))}</span></div>
