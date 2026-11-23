@@ -460,7 +460,9 @@ def suggest(s: SuggestIn):
     for i in ideas[:4]:  # sample from the messiest folders, then pad with random files
         rows += c.execute("SELECT * FROM files WHERE path LIKE ? ESCAPE '\\' ORDER BY random() LIMIT 12",
                           (i["folder"].replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "/%",)).fetchall()
-    rows += c.execute("SELECT * FROM files ORDER BY random() LIMIT ?", (max(0, s.sample - len(rows)),)).fetchall()
+    pool = c.execute("SELECT * FROM files ORDER BY random() LIMIT ?", (s.sample * 8,)).fetchall()
+    rows += [r for r in pool if not cleanup.is_program_file(r["path"], r["ext"])][: max(0, s.sample - len(rows))]
+    rows = [r for r in rows if not cleanup.is_program_file(r["path"], r["ext"])]  # apps/games/system files are not the user's clutter
     from datetime import datetime
     items = [{"path": r["path"], "name": r["name"], "kind": r["kind"], "ext": r["ext"], "size": r["size"],
               "modified": datetime.fromtimestamp(r["mtime"]).strftime("%Y-%m-%d %H:%M")} for r in rows]
@@ -473,6 +475,9 @@ def suggest(s: SuggestIn):
             out["ai"], out["sent"] = llm.organise(payload), True
         except Exception as e:  # noqa: BLE001
             name = type(e).__name__
+            who = "The on-device AI (Ollama)" if llm.is_local() else "The cloud AI"
+            if isinstance(e, llm.LLMError) and llm.is_local():
+                raise HTTPException(502, f"{who} failed: {e}") from e
             if isinstance(e, llm.LLMError):
                 code = {400: 400, 401: 401, 403: 401, 404: 400, 429: 429}.get(e.status, 502)
                 hint = {401: "Gemini rejected the key: create one at aistudio.google.com/apikey.",
@@ -484,7 +489,7 @@ def suggest(s: SuggestIn):
                 raise HTTPException(402, "Anthropic API key is valid but the account has no credits: add credits at console.anthropic.com -> Plans & Billing.") from e
             if name in ("NotFoundError", "BadRequestError"):
                 raise HTTPException(400, f"Anthropic request failed ({name}): {e}. Check ME3_LLM_MODEL (default {llm.MODEL}).") from e
-            raise HTTPException(502, f"Cloud AI call failed ({name}): {e}") from e
+            raise HTTPException(502, f"{who} failed ({name}): {e}") from e
     return out
 
 

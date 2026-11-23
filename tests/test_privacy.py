@@ -45,3 +45,28 @@ def test_password_phrasings():
     assert privacy.redact("password: hunter2", use_presidio=False).text == "password: <SECRET_1>"  # keyword stays readable
     for ok in ("please reset my password tomorrow", "I will pass the exam", "forgot password? click here", "pin the tab"):
         assert privacy.redact(ok, use_presidio=False).text == ok
+
+
+def test_ai_reply_parsing_is_robust():
+    import pytest
+
+    from me3 import llm
+    good = '{"summary":"s","suggestions":[{"title":"A","detail":"d","folder":"~/x"},{"title":"B","detail":"d","folder":"~/y"}]}'
+    assert [x["title"] for x in llm.parse_reply("```json\n" + good + "\n```")["suggestions"]] == ["A", "B"]
+    cut = llm.parse_reply(good[: good.rfind('{"title":"B"') + 15])  # answer cut off mid-way: keep the complete ones
+    assert cut["partial"] and [x["title"] for x in cut["suggestions"]] == ["A"]
+    with pytest.raises(ValueError):
+        llm.parse_reply('{"summary":"s","suggestions":[{"title":"A","detail":"he said "hi"","folder":"x"}]}')
+
+
+def test_program_dataset_and_code_folders_are_left_alone():
+    from me3 import cleanup
+
+    def rows(names, kind="other"):
+        return [{"path": f"/h/f/{n}", "kind": kind} for n in names]
+
+    assert cleanup.folder_role("/h/prefix/drive_c/windows", rows(["a.txt"])) == "program"
+    assert cleanup.folder_role("/h/data/train", rows([f"img{i}.jpg" for i in range(5)] + [f"img{i}.txt" for i in range(5)])) == "dataset"
+    assert cleanup.folder_role("/h/proj", rows(["main.py", "notes.txt"])) == "code"
+    assert cleanup.folder_role("/h/Downloads", rows(["a.pdf", "b.jpg", "c.docx"])) is None
+    assert cleanup.is_program_file("/h/dxvk/x64/dxgi.dll") and not cleanup.is_program_file("/h/Documents/cv.pdf")

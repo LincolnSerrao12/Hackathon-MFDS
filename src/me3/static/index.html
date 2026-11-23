@@ -196,7 +196,7 @@
   .frow .pth { font-size:12.5px; word-break:break-all; color:var(--soft); }
   .keep { color:var(--ok); font-size:11.5px; font-weight:600; margin-right:6px; }
   .steps { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-  .btn-pri .n { background:rgba(0,0,0,.18); border-color:transparent; color:inherit; }
+  .btn-pri .n { background:var(--ink); border-color:transparent; color:var(--acc); }
   .steps .n { width:22px; height:22px; border-radius:50%; display:inline-grid; place-items:center; font-size:12px; font-weight:700; background:var(--panel2); border:1px solid var(--line2); margin-right:6px; }
   pre { background:var(--bg2); border:1px solid var(--line); border-radius:10px; padding:12px; overflow:auto; max-height:340px; font-size:12px; white-space:pre-wrap; word-break:break-word; margin:0; }
   textarea { min-height:110px; resize:vertical; }
@@ -1044,7 +1044,10 @@ async function suggest(send) {
       : 'A cloud AI model is configured. Step 2 sends only the redacted payload below: no file contents, no personal details.';
     if (r.ai) {
       $('aicard').classList.remove('hidden');
-      $('ai').innerHTML = (r.ai.summary ? `<p style="margin-top:0">${esc(r.ai.summary)}</p>` : '') + (r.ai.suggestions || []).map(s => `<div class="grp"><b>${esc(s.title)}</b><div style="margin-top:4px">${esc(s.detail)}</div><div class="meta">${esc(s.folder || '')}</div></div>`).join('');
+      $('ai').innerHTML = (r.ai.summary ? `<p style="margin-top:0">${esc(r.ai.summary)}</p>` : '')
+        + (r.ai.suggestions || []).map(s => `<div class="grp"><div class="hd"><b>${esc(s.title)}</b>${s.folder ? `<span class="pill">${icon('folder')} ${esc(s.folder)}</span>` : ''}</div><div>${esc(s.detail)}</div>${(s.example_files || []).length ? `<small>e.g. ${s.example_files.map(esc).join(' · ')}</small>` : ''}</div>`).join('')
+        + (r.ai.partial ? '<small>The AI’s answer was cut short; showing the complete suggestions it gave.</small>' : '')
+        + '<small style="display:block;margin-top:8px">Suggestions only: nothing is moved. Program, game and system files were left out of what the AI saw.</small>';
       $('aicard').scrollIntoView({behavior: 'smooth', block: 'start'});
     }
   } catch (e) { toast(e.message, 'bad'); }

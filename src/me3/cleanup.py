@@ -106,6 +106,40 @@ def stale_media(conn, days: int = 365, limit: int = 50, min_size: int = 1024 * 1
         "ORDER BY size DESC LIMIT ?", (cutoff, min_size, limit))]
 
 
+# Files that programs need where they are: never suggest moving / renaming them, never send them to the AI as "clutter".
+PROGRAM_EXTS = {"dll", "exe", "so", "sys", "msi", "drv", "ocx", "cpl", "mui", "cab", "pdb", "lib", "a", "o", "pyd", "node", "dylib",
+                "pak", "pck", "blk", "bundle", "assets", "resource", "resS", "bin", "dat", "vdf", "acf", "ini", "reg", "log", "db", "dmp"}
+PROGRAM_DIRS = {"drive_c", "windows", "system32", "syswow64", "program files", "program files (x86)", "programdata", "appdata",
+                "steamapps", "site-packages", "dist-packages", "node_modules", "lib", "lib64", "bin", "sbin", "usr", "opt", "snap",
+                "flatpak", "wineprefix", "proton", "compatdata", "venv", ".venv", "__pycache__", "build", "dist", "target"}
+CODE_MARKERS = {"package.json", "requirements.txt", "pyproject.toml", "setup.py", "cargo.toml", "go.mod", "pom.xml", "build.gradle",
+                "makefile", "cmakelists.txt", "dockerfile", "readme.md", "main.py", "app.py", "index.js"}
+IMG_EXTS = {"jpg", "jpeg", "png", "webp", "bmp", "gif", "tif", "tiff", "heic"}
+
+
+def is_program_file(path: str, ext: str = "") -> bool:
+    ext = (ext or os.path.splitext(path)[1].lstrip(".")).lower()
+    parts = {p.lower() for p in path.replace("\\", "/").split("/")}
+    return ext in PROGRAM_EXTS or bool(parts & PROGRAM_DIRS)
+
+
+def folder_role(folder: str, rows) -> str | None:
+    """Why a folder must be left alone: 'program' (apps, games, system), 'dataset' (images paired with label files),
+    'code' (a software project) - or None for ordinary personal folders."""
+    names = [os.path.basename(r["path"]) for r in rows]
+    exts = [os.path.splitext(n)[1].lstrip(".").lower() for n in names]
+    n = len(names) or 1
+    if is_program_file(folder + "/") or sum(e in PROGRAM_EXTS for e in exts) / n >= 0.2:
+        return "program"
+    stems_img = {os.path.splitext(x)[0] for x, e in zip(names, exts) if e in IMG_EXTS}
+    others = [os.path.splitext(x)[0] for x, e in zip(names, exts) if e not in IMG_EXTS]
+    if stems_img and others and sum(st in stems_img for st in others) / len(others) >= 0.5:
+        return "dataset"  # e.g. YOLO/COCO: img_001.jpg + img_001.txt must stay side by side
+    if {x.lower() for x in names} & CODE_MARKERS or sum(r["kind"] == "code" for r in rows) / n >= 0.3:
+        return "code"
+    return None
+
+
 def organisation_ideas(conn, source_id: int | None = None, max_ideas: int = 12) -> list[dict]:
     """Rule-based suggestions from metadata only. Works offline; the LLM (llm.py) refines wording on redacted data."""
     q = "SELECT path,kind,mtime,size FROM files" + (" WHERE source_id=?" if source_id else "")
@@ -115,8 +149,8 @@ def organisation_ideas(conn, source_id: int | None = None, max_ideas: int = 12) 
     ideas = []
     for d, rows in dirs.items():
         n = len(rows)
-        if n < 20:
-            continue
+        if n < 20 or folder_role(d, rows):
+            continue  # too small, or a program / dataset / code folder that must keep its layout
         kinds = defaultdict(int)
         for r in rows:
             kinds[r["kind"]] += 1
