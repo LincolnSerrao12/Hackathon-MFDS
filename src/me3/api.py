@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
-from . import auth, cleanup, db, embed, llm, privacy, sources
+from . import auth, cleanup, db, disks, embed, llm, privacy, sources
 from . import search as searchmod
 from .indexer import indexer
 
@@ -63,6 +63,17 @@ def stats():
     pend = c.execute("SELECT count(*) FROM files WHERE extracted=0").fetchone()[0]
     return {"files": tot["n"], "bytes": tot["bytes"], "pending_extraction": pend, "by_kind": by_kind,
             "semantic": embed.available(), "embedding": embed.pending_counts(c)}
+
+
+@app.get("/api/disks")
+def disks_report():
+    """Physical disks, partitions, free space and what fills each disk (by file type + biggest folders)."""
+    return disks.report()
+
+
+@app.post("/api/disks/rescan")
+def disks_rescan():
+    return {"started": disks.start_scan()}
 
 
 @app.get("/api/insights")

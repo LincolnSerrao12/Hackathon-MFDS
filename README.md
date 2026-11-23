@@ -11,12 +11,13 @@ AI-powered local search, organisation and cleanup for local storage. Private dat
 - **Last updated:** 2026-11-23 (UI redesign: light/dark/royal themes, cleaner search, sources, cleanup, organise, privacy)
 - **Phase:** 2 - all three brief requirements implemented and tested: (1) efficient live index, (2) Google Drive connector (SFTP removed on purpose: no data may leave the machine to arbitrary hosts), (3) search by meaning (text + images) with type/date/size filters; plus hybrid privacy layer, cleanup and AI organisation suggestions.
 - **Run it:** `cd ~/Desktop/AquaFlare/me3-fsi && source env.sh && python -m me3 serve --port 8765` then open http://127.0.0.1:8765 (or `make run`). Small demo: `python scripts/make_demo.py && ME3_DB=$PWD/data/demo.db python -m me3 index data/demo && ME3_DB=$PWD/data/demo.db python -m me3 serve --port 8766`.
-- **Tests:** `make test` -> 28 pass (core, privacy, connectors, semantic).
+- **Tests:** `make test` -> 31 pass (core, privacy, connectors, semantic).
 - **Working:**
   - Index: incremental crawler, inotify live watcher (polling fallback; remote sources rescan every 120s), low priority threads, text extraction txt/code/pdf/docx/gdoc into FTS5.
   - Search: hybrid = FTS5 keywords + MiniLM text meaning + CLIP image meaning, fused with RRF; local NL parser (`nlq.py`) extracts type/size/date ("last semester", "photos", "larger than 5MB", "in March 2024"); synonym expansion for everyday document words; thumbnails in UI.
   - Connectors: Local, Google Drive (live: OAuth done, source added).
   - Privacy: `privacy.py` (Presidio + PAN/Aadhaar/IFSC/UPI/phone/Luhn cards/secrets), `prepare_payload` builds the only thing that can reach `llm.py`; UI shows the exact redacted payload and requires an explicit send click; works without an API key (on-device rule-based ideas).
+  - Disks panel (sidebar): every physical disk (lsblk) with used/free (statvfs, matches df) and a bar of what fills it by file type + "Apps & system" (OS folders, swap, hidden home folders) + hatched "Reserved & unreadable" (fs reserve, root-only folders) + free; biggest folders; Trash size. `disks.py` scans each mounted filesystem in a nice 10 / idle-I/O thread (~5-12 s for 1.1M files), cached in data/disks.json, auto-rescans after 1 h, Rescan button. API: GET /api/disks, POST /api/disks/rescan.
   - Cleanup: duplicates (size -> partial hash -> full hash), large files, stale media, reversible trash (desktop Trash, freedesktop.org spec: restorable from the file manager), organisation ideas.
 - **Benchmarks:** 100k synthetic files (2.1GB): crawl 2.2s, text extraction 62k files 5.3s, keyword search ~5ms, hybrid search 13-30ms warm (first query ~3s model load), duplicate analysis ~8s. Background embedding of the 100k set runs at ~30 files/s (about 30 min for 62k texts) while the app stays usable.
 - **Known issues / limits:**
@@ -33,7 +34,7 @@ AI-powered local search, organisation and cleanup for local storage. Private dat
 
 ## NEXT STEPS (ordered; the top item is what to do next)
 
-0. [ ] **Check the redesigned UI while signed in**: all 3 themes, search + filters + load more + grid, add/remove source, cleanup trash, organise send. It was only rendered headless against a mock API (same response shapes) plus JS syntax / id checks.
+0. [ ] **Check the redesigned UI while signed in**: all 3 themes, search + filters + load more + grid, add/remove source, cleanup trash (now goes to the desktop Trash: confirm it appears in the file manager and Restore works), Disks panel (expand Biggest folders, Rescan), organise send. It was only rendered headless against a mock API (same response shapes) plus JS syntax / id checks.
 1. [x] Core index, watcher, extraction, FTS, NL parser, API, UI, tests.
 2. [x] Privacy layer + LLM layer (preview-then-send) + cleanup + organisation ideas.
 3. [x] Google Drive connector (SFTP removed). 4. [x] Torch, MiniLM + CLIP embeddings, hybrid search, thumbnails.
@@ -126,6 +127,7 @@ tests/
 ```
 
 ## CHANGELOG (newest first)
+- 2026-11-23: Disks panel: all disks + partitions, used/free, what fills each disk by type (new 'system' kind colour --k-system, validated vs every type colour: CVD dE>=8, normal dE>=15, contrast>=3:1 on dark/royal/light), biggest folders, Trash size; src/me3/disks.py, /api/disks, tests/test_disks.py. Rendered and checked in all 3 themes (headless Firefox).
 - 2026-11-23: "Move to trash" now uses the real desktop Trash (~/.local/share/Trash, or $topdir/.Trash-$uid on other drives) with .trashinfo files, so trashed files appear in the file manager and Restore works; was a private data/trash/<time>/ folder the user could not see. UI toasts now report files that could not be moved. Old data/trash/ (2 files from earlier) left in place. Test: tests/test_trash.py.
 - 2026-11-23: Organise fixes: (1) AI reply parsing is robust: Ollama uses a JSON schema (structured output), replies cut off mid-list keep their complete suggestions, one automatic retry, clear error naming the on-device AI instead of 'Cloud AI call failed (JSONDecodeError)'; (2) no harmful advice: rule ideas skip program/game/system folders, ML datasets (images paired with label files) and code projects (cleanup.folder_role); program files are left out of the AI sample and the prompt forbids moving them; (3) step-2 badge readable on the blue button; AI card shows target folder + example files. Tests added.
 - 2026-11-23: duplicates: every group is listed (no paging/top-N); files under 1 KB and over 512 MB are no longer skipped (931 groups on the real index, was 901); Google Drive duplicates found via Drive's md5Checksum (stored as hash 'md5:...', backfilled on rescan) and Google Docs compared by their text (shown as 'likely'); Drive copies can't be trashed (read-only), the UI says to delete them in Drive. Empty (0-byte) files are still excluded. Test: tests/test_duplicates.py.
