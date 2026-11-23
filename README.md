@@ -126,6 +126,7 @@ tests/
 ```
 
 ## CHANGELOG (newest first)
+- 2026-11-23: look-before-you-trash: file viewer (images, PDF, video, audio, text) with Open / Show in folder / Copy path; Cleanup 'Compare copies' shows each duplicate side by side with the SHA-1 match and lets you pick which copy to keep; View buttons on every cleanup row, search result and Organise idea ('View files' lists that folder). New endpoints: GET /api/files/{id}, /api/files/{id}/raw (HTML/SVG/JS sent as plain text, sandbox CSP), POST /api/files/{id}/open, GET /api/folder.
 - 2026-11-23: privacy: password detection widened ("my password is x", "pass: x", "PIN 1234", "OTP is x", "password for gmail is x", Google/Slack/GitHub tokens); only the value is replaced so the keyword stays readable; normal sentences untouched; test added.
 - 2026-11-23: UI redesign (static/index.html rewritten, login.html themed): light/dark/royal themes (saved in localStorage, follows OS on first visit); type pills + collapsible filters with removable chips; example queries; stale-response guard; Load more paging; list/grid view; image preview (/api/thumb?size=); copy path; toasts + confirm dialogs instead of alert/confirm; Add-source panel; live privacy redaction; tab kept in URL hash; '/' focuses search. Fixed: Add source threw after success (referenced removed SFTP fields); Organise note claimed on-device even with a cloud model. All API calls unchanged.
 - 2026-11-23: REMOVED SFTP entirely (connector, UI tab, API branch, add-sftp CLI, tests, paramiko dep): user decision, security/privacy. Local + Google Drive only.

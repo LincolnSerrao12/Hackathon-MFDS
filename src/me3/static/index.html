@@ -220,9 +220,32 @@
   .modal h4 { margin:0 0 8px; font-size:16px; font-family:var(--head); }
   .modal p { margin:0 0 18px; color:var(--soft); white-space:pre-line; }
   .modal .row { justify-content:flex-end; }
-  .lightbox .box { width:auto; max-width:min(92vw,1100px); padding:12px; text-align:center; }
-  .lightbox img { max-width:100%; max-height:76vh; border-radius:10px; display:block; margin:auto; }
-  .lightbox .cap { margin-top:10px; font-size:13px; color:var(--soft); word-break:break-all; }
+
+  /* ---------- file viewer / compare ---------- */
+  .modal .box.wide { width:min(1180px,96vw); height:min(88vh,920px); display:grid; grid-template-rows:auto minmax(0,1fr) auto; padding:0; overflow:hidden; }
+  .vh { display:flex; gap:12px; align-items:flex-start; padding:16px 18px; border-bottom:1px solid var(--line); }
+  .vh .t { min-width:0; flex:1; } .vh h4 { margin:0 0 4px; word-break:break-word; }
+  .vh .pth { color:var(--mute); font-size:12px; word-break:break-all; }
+  .vbody { min-height:0; overflow:auto; background:var(--bg2); display:grid; }
+  .vbody > .pv { min-height:0; display:grid; place-items:center; padding:14px; }
+  .pv img { max-width:100%; max-height:100%; object-fit:contain; border-radius:8px; }
+  .pv iframe { width:100%; height:100%; min-height:60vh; border:0; border-radius:8px; background:#fff; }
+  .pv video { max-width:100%; max-height:100%; border-radius:8px; }
+  .pv pre { width:100%; height:100%; max-height:none; align-self:stretch; margin:0; }
+  .pv.top { place-items:stretch; }
+  .vf { display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:12px 18px; border-top:1px solid var(--line); }
+  .vf .grow { flex:1; }
+  .modal .vh .row, .modal .cmp .row, .modal .flist .row { justify-content:flex-start; }
+  .cmp { display:grid; grid-template-columns:300px minmax(0,1fr); min-height:0; }
+  .cmp .list { border-right:1px solid var(--line); overflow:auto; padding:10px; background:var(--panel); }
+  .cmp .cp { display:block; width:100%; text-align:left; padding:10px; margin-bottom:8px; border-radius:10px; background:var(--panel2); }
+  .cmp .cp.on { border-color:var(--acc); box-shadow:0 0 0 1px var(--acc) inset; }
+  .cmp .cp .pth { font-size:12px; color:var(--soft); word-break:break-all; display:block; margin-bottom:6px; }
+  .cmp .cp .row { gap:6px; }
+  .same { display:flex; gap:8px; align-items:center; padding:9px 18px; font-size:13px; background:color-mix(in srgb, var(--ok) 10%, transparent); color:var(--ok); border-bottom:1px solid var(--line); }
+  .flist .frow { gap:12px; }
+  .flist .frow .nm { font-weight:600; font-size:13px; word-break:break-word; }
+  @media (max-width: 760px) { .cmp { grid-template-columns:1fr; grid-template-rows:auto minmax(0,1fr); } .cmp .list { max-height:30vh; border-right:0; border-bottom:1px solid var(--line); } }
 
   /* ---------- responsive ---------- */
   @media (max-width: 1020px) {
@@ -268,6 +291,9 @@
   <symbol id="i-all" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></symbol>
   <symbol id="i-out" viewBox="0 0 24 24"><path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 17l5-5-5-5M15 12H3"/></symbol>
   <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
   <symbol id="i-hdd" viewBox="0 0 24 24"><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M5 13 7.5 5h9L19 13M7 16.5h.01"/></symbol>
 </svg>
 
@@ -440,16 +466,106 @@ function confirmBox(title, body, okText = 'Confirm', danger = false) {
     document.addEventListener('keydown', key); document.body.appendChild(m); m.querySelector('[data-a="1"]').focus();
   });
 }
-function lightbox(id, name, path) {
-  const m = document.createElement('div'); m.className = 'modal lightbox';
-  m.innerHTML = `<div class="box"><img src="/api/thumb/${id}?size=1200" alt="${esc(name)}"><div class="cap"><b>${esc(name)}</b><br>${esc(path)}</div></div>`;
-  const close = () => { m.remove(); document.removeEventListener('keydown', key); };
-  const key = e => { if (e.key === 'Escape') close(); };
-  m.onclick = close; document.addEventListener('keydown', key); document.body.appendChild(m);
-}
 async function copyText(t) {
   try { await navigator.clipboard.writeText(t); toast('Path copied', 'ok'); }
   catch { toast('Could not copy: ' + t); }
+}
+
+
+// ================= file viewer (look before you trash) =================
+const BROWSER_IMG = ['jpg','jpeg','png','gif','webp','bmp','avif'];
+const BROWSER_VIDEO = ['mp4','webm','ogg','mov','m4v'];
+const BROWSER_AUDIO = ['mp3','wav','ogg','flac','m4a','aac','opus'];
+function openModal(inner, cls = '') {
+  const m = document.createElement('div'); m.className = 'modal ' + cls; m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true');
+  m.innerHTML = inner;
+  const close = () => { m.remove(); document.removeEventListener('keydown', key); };
+  const key = e => { if (e.key === 'Escape' && document.querySelectorAll('.modal')[document.querySelectorAll('.modal').length - 1] === m) close(); };
+  m.addEventListener('click', e => { if (e.target === m || e.target.closest('[data-close]')) close(); });
+  document.addEventListener('keydown', key); document.body.appendChild(m);
+  return {el: m, close};
+}
+function previewHtml(f) {
+  const raw = `/api/files/${f.id}/raw`;
+  if (!f.exists) return `<div class="pv"><div class="empty">${icon('x')}<b>File not found on disk</b>It was moved or deleted after the last scan.</div></div>`;
+  if (f.kind === 'image' && BROWSER_IMG.includes(f.ext)) return `<div class="pv"><img src="${raw}" alt="${esc(f.name)}"></div>`;
+  if (f.kind === 'image' && IMG_EXTS.includes(f.ext)) return `<div class="pv"><img src="/api/thumb/${f.id}?size=1200" alt="${esc(f.name)}"></div>`;
+  if (f.ext === 'pdf') return `<div class="pv top"><iframe src="${raw}" title="${esc(f.name)}"></iframe></div>`;
+  if (BROWSER_VIDEO.includes(f.ext)) return `<div class="pv"><video controls preload="metadata" src="${raw}"></video></div>`;
+  if (BROWSER_AUDIO.includes(f.ext)) return `<div class="pv"><div style="text-align:center">${icon('audio')}<br><audio controls preload="metadata" src="${raw}" style="margin-top:12px"></audio></div></div>`;
+  if (f.text) return `<div class="pv top"><pre>${esc(f.text)}${f.text.length >= 6000 ? '\n\n… (preview shows the first 6,000 characters)' : ''}</pre></div>`;
+  return `<div class="pv"><div class="empty">${icon(KIND_ICON[f.kind] || 'file')}<b>No preview for .${esc(f.ext || 'this')} files</b>${f.local ? 'Use “Open” to view it in its usual app.' : 'Open it in Google Drive to view it.'}</div></div>`;
+}
+function fileActions(f) {
+  return `<button class="btn-sm" data-act="open" ${f.local && f.exists ? '' : 'disabled title="Only files on this computer can be opened here"'}>${icon('ext')} Open</button>
+    <button class="btn-sm" data-act="reveal" ${f.local && f.exists ? '' : 'disabled'}>${icon('folder')} Show in folder</button>
+    <button class="btn-sm" data-act="copy">${icon('copy')} Copy path</button>`;
+}
+async function fileAct(act, f) {
+  if (act === 'copy') return copyText(f.path);
+  try { await post(`/api/files/${f.id}/open`, {reveal: act === 'reveal'}); toast(act === 'reveal' ? 'Opened the folder' : 'Opened in its app', 'ok'); }
+  catch (e) { toast(e.message, 'bad'); }
+}
+async function viewFile(id) {
+  const m = openModal(`<div class="box wide"><div class="vh"><div class="t"><h4>Loading…</h4></div><button class="icon-btn" data-close aria-label="Close">${icon('x')}</button></div><div class="vbody"><div class="pv"><span class="spin"></span></div></div><div class="vf"></div></div>`);
+  let f;
+  try { f = await J('/api/files/' + id); } catch (e) { m.el.querySelector('.vbody').innerHTML = `<div class="pv"><div class="empty">${icon('x')}<b>Can’t show this file</b>${esc(e.message)}</div></div>`; return; }
+  m.el.querySelector('.vh .t').innerHTML = `<h4>${esc(f.name)}</h4><div class="pth">${esc(f.path)}</div>
+    <div class="row" style="gap:6px;margin-top:8px"><span class="pill" style="color:${KIND_COLOR[f.kind]}">${esc(f.kind)}</span><span class="pill">${fmt(f.size)}</span><span class="pill">modified ${esc(f.modified)}</span><span class="pill">${esc(f.source)}</span></div>`;
+  m.el.querySelector('.vbody').innerHTML = previewHtml(f);
+  m.el.querySelector('.vf').innerHTML = fileActions(f) + '<span class="grow"></span><button class="btn-sm" data-close>Close</button>';
+  m.el.querySelector('.vf').onclick = e => { const b = e.target.closest('[data-act]'); if (b) fileAct(b.dataset.act, f); };
+}
+
+// duplicates: compare every copy side by side, pick which one to keep
+async function compareDup(g) {
+  let keep = g.files[0].id, cur = g.files[0].id;
+  const m = openModal(`<div class="box wide">
+    <div class="vh"><div class="t"><h4>${g.files.length} copies of the same file</h4><div class="pth">${fmt(g.size)} each · ${fmt(g.wasted)} would be freed</div></div><button class="icon-btn" data-close aria-label="Close">${icon('x')}</button></div>
+    <div style="display:grid;grid-template-rows:auto minmax(0,1fr);min-height:0">
+      <div class="same">${icon('check')}<span>Byte-for-byte identical: same size and the same content fingerprint (SHA-1 <code>${esc((g.hash || '').slice(0, 12))}…</code>). Check the preview, then choose which copy to keep.</span></div>
+      <div class="cmp"><div class="list"></div><div class="vbody"><div class="pv"><span class="spin"></span></div></div></div>
+    </div>
+    <div class="vf"><span class="grow meta" id="cmp-note"></span><button class="btn-sm" data-close>Cancel</button><button class="btn-danger btn-sm" id="cmp-trash">${icon('trash')} Move the other ${g.files.length - 1} to trash</button></div></div>`);
+  const list = m.el.querySelector('.list'), body = m.el.querySelector('.vbody'), cache = {};
+  const drawList = () => {
+    list.innerHTML = g.files.map((f, i) => `<button class="cp ${f.id === cur ? 'on' : ''}" data-id="${f.id}"><span class="pth">${esc(f.path)}</span>
+      <span class="row"><span class="pill">${new Date(f.mtime * 1000).toLocaleString()}</span>${i === 0 ? '<span class="pill">oldest</span>' : ''}${f.id === keep ? `<span class="pill ok">${icon('check')} keep</span>` : `<span class="pill" data-keep="${f.id}" style="cursor:pointer">keep this one</span>`}</span></button>`).join('');
+    m.el.querySelector('#cmp-note').textContent = 'Keeping: ' + g.files.find(f => f.id === keep).path;
+  };
+  const show = async id => {
+    cur = id; drawList(); body.innerHTML = '<div class="pv"><span class="spin"></span></div>';
+    try { cache[id] = cache[id] || await J('/api/files/' + id); } catch (e) { body.innerHTML = `<div class="pv"><div class="empty"><b>Can’t show this copy</b>${esc(e.message)}</div></div>`; return; }
+    if (cur !== id) return;
+    const f = cache[id];
+    body.innerHTML = `<div style="display:grid;grid-template-rows:minmax(0,1fr) auto;min-height:0">${previewHtml(f)}<div class="vf" style="border-top:1px solid var(--line)">${fileActions(f)}</div></div>`;
+    body.querySelector('.vf').onclick = e => { const b = e.target.closest('[data-act]'); if (b) fileAct(b.dataset.act, f); };
+  };
+  list.onclick = e => {
+    const k = e.target.closest('[data-keep]'); if (k) { keep = +k.dataset.keep; drawList(); e.stopPropagation(); return; }
+    const c = e.target.closest('[data-id]'); if (c) show(+c.dataset.id);
+  };
+  m.el.querySelector('#cmp-trash').onclick = async () => {
+    const ids = g.files.filter(f => f.id !== keep).map(f => f.id);
+    const ok = await confirmBox(`Move ${ids.length} cop${ids.length > 1 ? 'ies' : 'y'} to trash?`, 'Keeping:\n' + g.files.find(f => f.id === keep).path + '\n\nThe others go to the app’s trash folder and can be moved back.', 'Move to trash', true);
+    if (!ok) return;
+    try { const r = await post('/api/cleanup/trash', {ids}); toast(`Moved ${r.moved} file(s) to trash`, 'ok'); m.close(); loadCleanup(); stats(); }
+    catch (e) { toast(e.message, 'bad'); }
+  };
+  show(cur);
+}
+
+// organise: list the files an idea is about
+async function viewFolder(folder, title) {
+  const m = openModal(`<div class="box wide"><div class="vh"><div class="t"><h4>${esc(title)}</h4><div class="pth">${esc(folder)}</div></div><button class="icon-btn" data-close aria-label="Close">${icon('x')}</button></div><div class="vbody" style="background:var(--panel)"><div class="pv"><span class="spin"></span></div></div><div class="vf"><span class="grow meta" id="fl-note"></span><button class="btn-sm" id="fl-reveal">${icon('folder')} Open this folder</button><button class="btn-sm" data-close>Close</button></div></div>`);
+  let r;
+  try { r = await J('/api/folder?path=' + encodeURIComponent(folder)); } catch (e) { m.el.querySelector('.vbody').innerHTML = `<div class="pv"><div class="empty"><b>Can’t list this folder</b>${esc(e.message)}</div></div>`; return; }
+  m.el.querySelector('#fl-note').textContent = r.total > r.files.length ? `Showing ${r.files.length} of ${r.total.toLocaleString()} files` : `${r.total.toLocaleString()} files`;
+  m.el.querySelector('.vbody').innerHTML = `<div class="flist" style="padding:6px 18px">${r.files.map(f => `<div class="frow">
+    <span class="row" style="gap:10px;flex:1;min-width:0;flex-wrap:nowrap"><span style="color:${KIND_COLOR[f.kind]};flex:none">${icon(KIND_ICON[f.kind] || 'file')}</span><span style="min-width:0"><span class="nm">${esc(f.name)}</span><br><small>${fmt(f.size)} · ${esc(f.modified)}</small></span></span>
+    <button class="btn-sm" data-view="${f.id}">${icon('eye')} View</button></div>`).join('') || '<div class="empty"><b>No indexed files here</b></div>'}</div>`;
+  m.el.querySelector('.vbody').onclick = e => { const b = e.target.closest('[data-view]'); if (b) viewFile(+b.dataset.view); };
+  m.el.querySelector('#fl-reveal').onclick = () => r.files[0] ? fileAct('reveal', {id: r.files[0].id}) : toast('No files to locate', 'bad');
 }
 
 // ================= theme =================
@@ -509,12 +625,13 @@ function hitHtml(h, i) {
     <div class="bd"><div class="nm">${esc(h.name)}${(h.why || []).map(w => `<span class="why ${esc(w)}">${esc(w)}</span>`).join('')}</div>
       <div class="pth">${esc(h.path)}</div>${snip}
       <div class="meta-line"><span class="ktag" style="color:${KIND_COLOR[h.kind] || 'inherit'}">${esc(h.kind)}</span><span>${icon('hdd')}${fmt(h.size)}</span><span>${icon('clock')}${esc(h.modified)}</span>${h.source ? `<span>${icon(/drive/i.test(h.source) ? 'drive' : 'folder')}${esc(h.source)}</span>` : ''}</div></div>
-    <div class="acts"><button class="icon-btn" data-copy="${i}" title="Copy path" aria-label="Copy path">${icon('copy')}</button></div></div>`;
+    <div class="acts"><button class="icon-btn" data-view="${h.id}" title="View file" aria-label="View file">${icon('eye')}</button><button class="icon-btn" data-copy="${i}" title="Copy path" aria-label="Copy path">${icon('copy')}</button></div></div>`;
 }
 $('results').onclick = e => {
   const z = e.target.closest('[data-zoom]'), c = e.target.closest('[data-copy]');
-  if (z) { const h = lastResults[+z.dataset.zoom]; lightbox(h.id, h.name, h.path); }
+  if (z) viewFile(lastResults[+z.dataset.zoom].id);
   if (c) copyText(lastResults[+c.dataset.copy].path);
+  const v = e.target.closest('[data-view]'); if (v) viewFile(+v.dataset.view);
 };
 
 function chipsHtml(r) {
@@ -681,7 +798,7 @@ $('add-btn').onclick = addSource;
 ['l-root', 's-name', 'g-root'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') addSource(); }));
 
 // ================= cleanup =================
-let cleanupFiles = {};
+let dupGroups = [];
 const trashBtn = ids => `<button class="btn-danger btn-sm" data-trash="${ids.join(',')}">${icon('trash')} Move to trash</button>`;
 async function loadCleanup() {
   $('cl-run').disabled = true; $('cl-run').innerHTML = '<span class="spin"></span> Analysing…';
@@ -689,19 +806,23 @@ async function loadCleanup() {
     const [sum, dup, big, stale] = await Promise.all([J('/api/cleanup/summary'), J('/api/cleanup/duplicates?limit=20'), J('/api/cleanup/large?limit=20&min_mb=50'), J('/api/cleanup/stale?limit=20')]);
     $('cl-sum').innerHTML = [[fmt(sum.duplicate_wasted_bytes), `wasted in ${sum.duplicate_groups} duplicate groups`], [fmt(sum.large_bytes), `in ${sum.large_files} files over 50 MB`], [fmt(sum.stale_media_bytes), `in ${sum.stale_media_files} old media files`]]
       .map(([a, b]) => `<div class="tile"><b>${a}</b><small>${b}</small></div>`).join('');
-    $('cl-dup').innerHTML = dup.groups.map(g => `<div class="grp"><div class="hd"><b>${g.files.length} copies · ${fmt(g.size)} each · <span style="color:var(--warn)">${fmt(g.wasted)} wasted</span></b>${trashBtn(g.files.slice(1).map(f => f.id))}</div>
-      ${g.files.map((f, i) => `<div class="frow"><span class="pth">${i === 0 ? '<span class="keep">KEEP (oldest)</span>' : ''}${esc(f.path)}</span></div>`).join('')}</div>`).join('')
+    dupGroups = dup.groups;
+    $('cl-dup').innerHTML = dup.groups.map((g, gi) => `<div class="grp"><div class="hd"><b>${g.files.length} copies · ${fmt(g.size)} each · <span style="color:var(--warn)">${fmt(g.wasted)} wasted</span></b>
+        <span class="row" style="flex:none"><button class="btn-pri btn-sm" data-compare="${gi}">${icon('eye')} Compare copies</button>${trashBtn(g.files.slice(1).map(f => f.id))}</span></div>
+      ${g.files.map((f, i) => `<div class="frow"><span class="pth">${i === 0 ? '<span class="keep">KEEP (oldest)</span>' : ''}${esc(f.path)}</span><button class="btn-sm" data-view="${f.id}">${icon('eye')} View</button></div>`).join('')}</div>`).join('')
       || `<div class="empty" style="padding:16px">${icon('copy')}<b>No duplicates found</b></div>`;
-    const list = a => a.map(f => `<div class="frow"><span class="pth">${esc(f.path)}</span><span class="row" style="flex:none;gap:8px"><small>${fmt(f.size)}</small>${trashBtn([f.id])}</span></div>`).join('') || '<small>Nothing found.</small>';
+    const list = a => a.map(f => `<div class="frow"><span class="pth">${esc(f.path)}</span><span class="row" style="flex:none;gap:8px"><small>${fmt(f.size)}</small><button class="btn-sm" data-view="${f.id}">${icon('eye')} View</button>${trashBtn([f.id])}</span></div>`).join('') || '<small>Nothing found.</small>';
     $('cl-large').innerHTML = list(big); $('cl-stale').innerHTML = list(stale);
   } catch (e) { toast(e.message, 'bad'); }
   $('cl-run').disabled = false; $('cl-run').textContent = 'Analyse again';
 }
 $('cl-run').onclick = loadCleanup;
 $('t-cleanup').addEventListener('click', async e => {
+  const v = e.target.closest('[data-view]'); if (v) return viewFile(+v.dataset.view);
+  const c = e.target.closest('[data-compare]'); if (c) return compareDup(dupGroups[+c.dataset.compare]);
   const b = e.target.closest('[data-trash]'); if (!b) return;
   const ids = b.dataset.trash.split(',').filter(Boolean).map(Number); if (!ids.length) return;
-  const ok = await confirmBox(`Move ${ids.length} file${ids.length > 1 ? 's' : ''} to trash?`, 'They go to the app’s trash folder (data/trash/) with a record of their original location, so this can be undone.', 'Move to trash', true);
+  const ok = await confirmBox(`Move ${ids.length} file${ids.length > 1 ? 's' : ''} to trash?`, 'Not sure? Cancel and use “View” or “Compare copies” first.\n\nThey go to the app’s trash folder (data/trash/) with a record of their original location, so this can be undone.', 'Move to trash', true);
   if (!ok) return;
   try { const r = await post('/api/cleanup/trash', {ids}); toast(`Moved ${r.moved} file(s)` + (r.trash_dir ? ' to ' + r.trash_dir : ''), 'ok'); }
   catch (err) { toast(err.message, 'bad'); }
@@ -709,13 +830,15 @@ $('t-cleanup').addEventListener('click', async e => {
 });
 
 // ================= organise (AI) with privacy preview =================
-let llmOk = false;
+let llmOk = false, ideaList = [];
+$('ideas').addEventListener('click', e => { const b = e.target.closest('[data-folder]'); if (b) { const i = ideaList[+b.dataset.folder]; viewFolder(i.folder, i.title); } });
 async function suggest(send) {
   const btn = send ? $('sendbtn') : $('sug-preview'), label = btn.innerHTML;
   btn.disabled = true; btn.innerHTML = '<span class="spin"></span> ' + (send ? 'Asking AI…' : 'Analysing…');
   try {
     const r = await post('/api/suggest', {send});
-    $('ideas').innerHTML = r.ideas.map(i => `<div class="grp"><div class="hd"><b>${esc(i.title)}</b><span class="pill">${i.files} files</span></div><div class="pth meta">${esc(i.folder)}</div><div style="margin-top:4px">${esc(i.detail)}</div></div>`).join('') || '<small>Nothing to suggest yet.</small>';
+    ideaList = r.ideas;
+    $('ideas').innerHTML = r.ideas.map((i, n) => `<div class="grp"><div class="hd"><b>${esc(i.title)}</b><span class="row" style="flex:none"><span class="pill">${i.files} files</span><button class="btn-sm" data-folder="${n}">${icon('eye')} View files</button></span></div><div class="pth meta">${esc(i.folder)}</div><div style="margin-top:4px">${esc(i.detail)}</div></div>`).join('') || '<small>Nothing to suggest yet.</small>';
     $('payload').textContent = JSON.stringify(r.payload, null, 2);
     const red = Object.entries(r.payload.redacted || {});
     $('redcounts').innerHTML = red.length ? '<small>Removed before sharing:</small> ' + red.map(([k, v]) => `<span class="chip info">${esc(k)} × ${v}</span>`).join('') : '<small>Paths made relative to your home folder; no personal identifiers found in this sample.</small>';

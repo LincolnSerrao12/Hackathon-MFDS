@@ -189,6 +189,112 @@ def cleanup_stale(days: int = 365, limit: int = 50):
     return cleanup.stale_media(db.get(), days, limit)
 
 
+# ---------------------------------------------------------------- viewing files (so users can check before trashing)
+PREVIEW_TEXT = 6000
+RAW_MAX_REMOTE = 60 * 1024 * 1024
+UNSAFE_INLINE = {"html", "htm", "svg", "xml", "xhtml", "js", "mjs"}  # never render these as active content in our origin
+
+
+def _file_row(fid: int):
+    r = db.get().execute("SELECT f.*, s.kind AS skind, s.name AS source FROM files f JOIN sources s ON s.id=f.source_id WHERE f.id=?", (fid,)).fetchone()
+    if not r:
+        raise HTTPException(404, "file is no longer in the index")
+    return r
+
+
+@app.get("/api/files/{fid}")
+def file_info(fid: int):
+    """Metadata + a text preview (from the index, or read directly for small local text files)."""
+    import os
+    from datetime import datetime
+
+    from .util import TEXT_EXTS
+    r = _file_row(fid)
+    body = db.get().execute("SELECT substr(body,1,?) FROM fts WHERE rowid=?", (PREVIEW_TEXT, fid)).fetchone()
+    text = (body[0] if body else "") or ""
+    if not text and r["skind"] == "local" and r["ext"] in TEXT_EXTS and r["size"] <= 2 * 1024 * 1024:
+        try:
+            with open(r["path"], encoding="utf-8", errors="replace") as fh:
+                text = fh.read(PREVIEW_TEXT)
+        except OSError:
+            pass
+    exists = os.path.exists(r["path"]) if r["skind"] == "local" else True
+    return {"id": r["id"], "name": r["name"], "path": r["path"], "ext": r["ext"], "kind": r["kind"], "size": r["size"],
+            "modified": datetime.fromtimestamp(r["mtime"]).strftime("%Y-%m-%d %H:%M"), "source": r["source"], "local": r["skind"] == "local",
+            "exists": exists, "hash": r["hash"], "text": text, "inline": r["ext"] not in UNSAFE_INLINE}
+
+
+@app.get("/api/files/{fid}/raw")
+def file_raw(fid: int):
+    """The file itself, for the in-app viewer (images, PDF, audio, video). Active formats are sent as plain text."""
+    import mimetypes
+    import os
+
+    r = _file_row(fid)
+    mime = "text/plain; charset=utf-8" if r["ext"] in UNSAFE_INLINE else (mimetypes.guess_type(r["name"])[0] or "application/octet-stream")
+    headers = {"X-Content-Type-Options": "nosniff", "Content-Disposition": "inline", "Cache-Control": "private, max-age=60"}
+    if not mime.startswith(("image/", "video/", "audio/", "application/pdf")) or mime == "image/svg+xml":
+        headers["Content-Security-Policy"] = "sandbox; default-src 'none'"  # browsers' PDF/media viewers break under sandbox; others never run
+    if r["skind"] == "local":
+        if not os.path.isfile(r["path"]):
+            raise HTTPException(404, "file not found on disk (moved or deleted?)")
+        return FileResponse(r["path"], media_type=mime, headers=headers)
+    if r["size"] > RAW_MAX_REMOTE:
+        raise HTTPException(413, "too large to preview from Drive; open it in Google Drive instead")
+    src = sources.load(db.get(), r["source_id"])
+    try:
+        with src.fetch(r["path"]) as local, open(local, "rb") as fh:
+            data = fh.read()
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, f"could not download from {r['source']}: {e}") from e
+    return Response(data, media_type=mime, headers=headers)
+
+
+class OpenIn(BaseModel):
+    reveal: bool = False  # True = show the file in its folder instead of opening it
+
+
+@app.post("/api/files/{fid}/open")
+def file_open(fid: int, o: OpenIn):
+    """Open a local file with the computer's default app, or show it in the file manager (this app runs on the user's own machine)."""
+    import os
+    import subprocess
+    import sys
+
+    r = _file_row(fid)
+    if r["skind"] != "local":
+        raise HTTPException(400, "only files on this computer can be opened here")
+    path = r["path"]
+    if not os.path.exists(path):
+        raise HTTPException(404, "file not found on disk (moved or deleted?)")
+    try:
+        if sys.platform.startswith("win"):
+            if o.reveal:
+                subprocess.Popen(["explorer", "/select,", path])
+            else:
+                os.startfile(path)  # type: ignore[attr-defined]
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", "-R", path] if o.reveal else ["open", path])
+        else:
+            subprocess.Popen(["xdg-open", os.path.dirname(path) if o.reveal else path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(500, f"could not open: {e}") from e
+    return {"ok": True}
+
+
+@app.get("/api/folder")
+def folder_files(path: str, limit: int = Query(200, le=1000)):
+    """Files directly inside one folder (used by Organise -> View files)."""
+    from datetime import datetime
+    pre = path.rstrip("/\\")
+    esc_ = pre.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    rows = db.get().execute(
+        "SELECT id,name,path,kind,ext,size,mtime FROM files WHERE path LIKE ? ESCAPE '\\' AND path NOT LIKE ? ESCAPE '\\' ORDER BY kind, name LIMIT ?",
+        (esc_ + "/%", esc_ + "/%/%", limit)).fetchall()
+    total = db.get().execute("SELECT count(*) FROM files WHERE path LIKE ? ESCAPE '\\' AND path NOT LIKE ? ESCAPE '\\'", (esc_ + "/%", esc_ + "/%/%")).fetchone()[0]
+    return {"folder": pre, "total": total, "files": [dict(r) | {"modified": datetime.fromtimestamp(r["mtime"]).strftime("%Y-%m-%d %H:%M")} for r in rows]}
+
+
 class TrashIn(BaseModel):
     ids: list[int]
 
