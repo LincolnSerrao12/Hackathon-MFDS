@@ -11,7 +11,7 @@ AI-powered local search, organisation and cleanup for local storage. Private dat
 - **Last updated:** 2026-11-23 (server verified running; `.env` key configured, detected by app)
 - **Phase:** 2 - all three brief requirements implemented and tested: (1) efficient live index, (2) SFTP + Google Drive connectors, (3) search by meaning (text + images) with type/date/size filters; plus hybrid privacy layer, cleanup and AI organisation suggestions.
 - **Run it:** `cd ~/Desktop/AquaFlare/me3-fsi && source env.sh && python -m me3 serve --port 8765` then open http://127.0.0.1:8765 (or `make run`). Small demo: `python scripts/make_demo.py && ME3_DB=$PWD/data/demo.db python -m me3 index data/demo && ME3_DB=$PWD/data/demo.db python -m me3 serve --port 8766`.
-- **Tests:** `make test` -> 17 pass (core, privacy, connectors incl. real SFTP round trip, semantic).
+- **Tests:** `make test` -> 18 pass (core, privacy, connectors incl. real SFTP round trip, semantic).
 - **Working:**
   - Index: incremental crawler, inotify live watcher (polling fallback; remote sources rescan every 120s), low priority threads, text extraction txt/code/pdf/docx/gdoc into FTS5.
   - Search: hybrid = FTS5 keywords + MiniLM text meaning + CLIP image meaning, fused with RRF; local NL parser (`nlq.py`) extracts type/size/date ("last semester", "photos", "larger than 5MB", "in March 2024"); synonym expansion for everyday document words; thumbnails in UI.
@@ -22,7 +22,10 @@ AI-powered local search, organisation and cleanup for local storage. Private dat
 - **Known issues / limits:**
   - Text embedding model is all-MiniLM-L6-v2 (weak on short abstract queries); a synonym lexicon (`nlq.SYNONYMS`) compensates. A stronger model (`BAAI/bge-small-en-v1.5`, set `ME3_TEXT_MODEL`, needs query prefix handling in embed.py) was not tested: download stalled.
   - Image meaning is only verified on synthetic cartoon scenes (`scripts/make_demo.py`), not real photo libraries. Synthetic 100k "images" are random bytes so they fail to embed (expected).
-  - **Google auth is NOT working** (user report 2026-11-23; exact error not yet captured). Google Drive not tested against a real account. Cloud LLM path (`llm.py`) untested without an API key.
+  - Google Drive: code now auto-finds `client_secret_*.json` (no rename needed) and prints the consent URL; Google accepts the OAuth client (sign-in page reached). STILL NEEDED from the user: run `python -m me3 gdrive-auth`, sign in in the browser (account must be a Test user on the consent screen, Drive API enabled in project aquaflare). Not yet verified end to end.
+  - Cloud AI: key is valid but the Anthropic account has NO CREDITS (HTTP 400 'credit balance too low'); user must add credits at console.anthropic.com. App now shows this as a clear 402 message.
+  - OCR is wired (extract.py) and turns on automatically once `tesseract` is installed (needs sudo: `sudo pacman -S --needed tesseract tesseract-data-eng`); untested without the binary.
+  - Real folder test: ~/Pictures (51 screenshots) indexed+embedded in 17s into data/real.db; search works. Cloud LLM path (`llm.py`) untested without an API key.
   - SFTP host keys are auto-accepted unless `known_hosts` is set; credentials are stored in plaintext in the local SQLite DB (use key auth).
   - Real `~` scan and inotify watch limits untested on a large real tree.
   - Do NOT use `pkill -f` with text that matches your own command (kills the shell); find the server with `ss -ltnp | grep :8765`.
@@ -34,7 +37,7 @@ AI-powered local search, organisation and cleanup for local storage. Private dat
 1. [x] Core index, watcher, extraction, FTS, NL parser, API, UI, tests.
 2. [x] Privacy layer + LLM layer (preview-then-send) + cleanup + organisation ideas.
 3. [x] SFTP and Google Drive connectors. 4. [x] Torch, MiniLM + CLIP embeddings, hybrid search, thumbnails.
-5. [ ] **Real-world validation**: index a real folder (e.g. ~/Documents, ~/Pictures: 44 screenshots) via the UI; check inotify mode, search quality, CPU usage while embedding. Fix issues found.
+5. [~] **Real-world validation** (~/Pictures done; ~/Documents and long-running inotify still to try): index a real folder (e.g. ~/Documents, ~/Pictures: 44 screenshots) via the UI; check inotify mode, search quality, CPU usage while embedding. Fix issues found.
 6. [ ] **Google Drive live test**: `client_secret_362846242510-...json` is in the project root but untracked/unignored (do NOT `git add .`; code expects `credentials.json`, so either copy/rename it (gitignored) or point gdrive.py at it); then user runs a browser consent:  runs `python -m me3 gdrive-auth`, then `python -m me3 add-gdrive`. Verify walk/fetch/export of Docs. Consider Drive Changes API instead of full rescans.
 7. [ ] **Cloud LLM live test**: `.env` key is DONE (detected). Remaining: verify `/api/suggest` with `send=true`; consider LLM query-understanding fallback (redacted).
 8. [ ] Embedding model upgrade experiment (bge-small / mpnet) with eval queries in tests; OCR for scanned PDFs/images (needs `sudo pacman -S tesseract tesseract-data-eng poppler`, then wire pytesseract into extract.py).
@@ -134,6 +137,7 @@ tests/
 
 ## CHANGELOG (newest first)
 
+- 2026-11-23: Fixed/hardened: gdrive finds client_secret_*.json + prints consent URL + clear token errors; /api/suggest maps Anthropic errors (401 key type, 402 no credits); optional OCR (images + scanned PDFs) auto-enabled when tesseract exists; test added (18 pass); validated real ~/Pictures indexing.
 - 2026-11-23: Recorded in STATUS that Google auth is not working (user report); needs debugging with the actual error.
 - 2026-11-23: Added docs/ME3_Project_Presentation.pptx (17 slides: project, architecture, libraries, algorithms, user manual); built with pptxgenjs from a scratchpad script outside the project. Not visually rendered (no LibreOffice installed).
 - 2026-11-23: Added `docs/ME3_Project_Guide.pptx` (22 slides: project, architecture, libraries, algorithms, user manual) generated by `scripts/build_deck.js` (pptxgenjs; needs `npm install pptxgenjs react-icons react react-dom sharp` outside the project, run with NODE_PATH, args: output path). Schema-validated and text-fit checked; NOT visually rendered (no LibreOffice installed: `sudo pacman -S libreoffice-fresh` then convert to PDF and eyeball).

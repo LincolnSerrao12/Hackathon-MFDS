@@ -179,7 +179,17 @@ def suggest(s: SuggestIn):
     if s.send:
         if not llm.available():
             raise HTTPException(400, "No ANTHROPIC_API_KEY configured (put it in .env). Showing on-device suggestions only.")
-        out["ai"], out["sent"] = llm.organise(payload), True
+        try:
+            out["ai"], out["sent"] = llm.organise(payload), True
+        except Exception as e:  # noqa: BLE001
+            name = type(e).__name__
+            if name == "AuthenticationError":
+                raise HTTPException(401, "Anthropic rejected the key. It must be a standard API key (sk-ant-api...) from console.anthropic.com, not an sk-ant-usr key.") from e
+            if "credit balance" in str(e):
+                raise HTTPException(402, "Anthropic API key is valid but the account has no credits: add credits at console.anthropic.com -> Plans & Billing.") from e
+            if name in ("NotFoundError", "BadRequestError"):
+                raise HTTPException(400, f"Anthropic request failed ({name}): {e}. Check ME3_LLM_MODEL (default {llm.MODEL}).") from e
+            raise HTTPException(502, f"Cloud AI call failed ({name}): {e}") from e
     return out
 
 

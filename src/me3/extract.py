@@ -1,5 +1,8 @@
 """Text extraction for the full-text index (txt/code/pdf/docx). Runs after the crawl, in the background."""
 import os
+import shutil
+import subprocess
+import tempfile
 
 from . import sources as srcmod
 
@@ -7,7 +10,38 @@ MAX_CHARS = int(os.environ.get("ME3_MAX_CHARS", 20_000))  # per file stored in t
 MAX_BYTES = 80 * 1024 * 1024  # skip reading files larger than this
 
 
+IMG_OCR = {"png", "jpg", "jpeg", "tif", "tiff", "bmp", "webp"}
+OCR_MAX_PAGES = 5
+OCR_MAX_IMG_BYTES = 15 * 1024 * 1024
+
+
+def ocr_available() -> bool:
+    """OCR switches on by itself when the tesseract binary exists (sudo pacman -S tesseract tesseract-data-eng). ME3_OCR=0 disables."""
+    return os.environ.get("ME3_OCR", "1") != "0" and shutil.which("tesseract") is not None
+
+
+def _tesseract(img_path: str) -> str:
+    r = subprocess.run(["nice", "-n", "10", "tesseract", img_path, "-", "-l", "eng"], capture_output=True, text=True, timeout=60)
+    return r.stdout if r.returncode == 0 else ""
+
+
+def ocr_image(path: str) -> str:
+    return _tesseract(path)[:MAX_CHARS] if os.path.getsize(path) <= OCR_MAX_IMG_BYTES else ""
+
+
+def ocr_pdf(path: str) -> str:
+    """Scanned PDFs: rasterise first pages with pdftoppm (poppler), then OCR each."""
+    if not shutil.which("pdftoppm"):
+        return ""
+    with tempfile.TemporaryDirectory() as d:
+        subprocess.run(["nice", "-n", "10", "pdftoppm", "-r", "150", "-l", str(OCR_MAX_PAGES), "-png", path, os.path.join(d, "p")],
+                       capture_output=True, timeout=120)
+        return "\n".join(_tesseract(os.path.join(d, f)) for f in sorted(os.listdir(d)))[:MAX_CHARS]
+
+
 def read_text(path: str, ext: str) -> str:
+    if ext in IMG_OCR:
+        return ocr_image(path) if ocr_available() else ""
     if ext == "pdf":
         from pypdf import PdfReader
 
@@ -18,7 +52,8 @@ def read_text(path: str, ext: str) -> str:
             total += len(t)
             if total >= MAX_CHARS:
                 break
-        return "\n".join(parts)[:MAX_CHARS]
+        text = "\n".join(parts)[:MAX_CHARS]
+        return text if text.strip() or not ocr_available() else ocr_pdf(path)
     if ext == "docx":
         import docx
 

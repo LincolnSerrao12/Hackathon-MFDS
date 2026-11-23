@@ -76,3 +76,15 @@ def test_nlq():
     assert datetime.fromtimestamp(f["after"]) == datetime(2024, 3, 1)
     text, f = nlq.parse("videos last 3 months", now)
     assert f["kinds"] == ["video"] and f["after"] < now.timestamp()
+
+
+def test_ocr_fallback_wiring(monkeypatch, tmp_path):
+    """Images/scanned PDFs use OCR only when tesseract is present; otherwise they yield empty text without error."""
+    from me3 import extract
+    f = tmp_path / "scan.png"
+    f.write_bytes(b"\x89PNG fake")
+    monkeypatch.setattr(extract, "ocr_available", lambda: False)
+    assert extract.read_text(str(f), "png") == ""
+    monkeypatch.setattr(extract, "ocr_available", lambda: True)
+    monkeypatch.setattr(extract, "_tesseract", lambda p: "Invoice 42")
+    assert extract.read_text(str(f), "png") == "Invoice 42"

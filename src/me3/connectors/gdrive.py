@@ -1,6 +1,6 @@
 """Google Drive source (read-only OAuth). Setup, once:
  1. Google Cloud Console -> APIs & Services -> enable "Google Drive API"
- 2. Credentials -> Create OAuth client ID (type: Desktop app) -> download JSON -> save as <project>/credentials.json
+ 2. Credentials -> Create OAuth client ID (type: Desktop app) -> download JSON -> save in <project>/ (credentials.json or the original client_secret_*.json both work)
  3. OAuth consent screen: add your Google account as a test user
  4. Run:  python -m me3 gdrive-auth      (opens a browser once; stores <project>/token.json)
  5. Add the source in the UI (kind=gdrive, root="/") or:  python -m me3 add-gdrive
@@ -18,6 +18,19 @@ from ..sources import Entry
 
 SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
 CREDS = db.ROOT / "credentials.json"
+
+
+def find_client_secret():
+    """credentials.json, else the file Google's console downloads (client_secret_*.json), else $ME3_GOOGLE_CLIENT."""
+    env = os.environ.get("ME3_GOOGLE_CLIENT")
+    if env and os.path.exists(env):
+        return env
+    if CREDS.exists():
+        return CREDS
+    found = sorted(db.ROOT.glob("client_secret*.json"))
+    if found:
+        return found[0]
+    raise RuntimeError("No Google OAuth client file found: put credentials.json or client_secret_*.json in the project root")
 TOKEN = db.ROOT / "token.json"
 FOLDER = "application/vnd.google-apps.folder"
 NATIVE = {  # mime -> (suffix we show, export mime)
@@ -27,12 +40,16 @@ NATIVE = {  # mime -> (suffix we show, export mime)
 }
 
 
-def authorize() -> None:
-    """Interactive one-time OAuth flow; writes token.json."""
+def authorize(open_browser: bool = True) -> None:
+    """Interactive one-time OAuth flow; writes token.json. Prints the URL so it also works when no browser can be launched."""
     from google_auth_oauthlib.flow import InstalledAppFlow
 
-    flow = InstalledAppFlow.from_client_secrets_file(str(CREDS), SCOPES)
-    creds = flow.run_local_server(port=0)
+    flow = InstalledAppFlow.from_client_secrets_file(str(find_client_secret()), SCOPES)
+    try:
+        creds = flow.run_local_server(port=0, open_browser=open_browser, authorization_prompt_message="Open this URL to authorise Google Drive:\n{url}\n",
+                                      success_message="ME3 is authorised. You can close this tab.")
+    except Exception as e:  # noqa: BLE001
+        raise RuntimeError(f"Google authorisation failed: {e}. Check: Drive API enabled in project, your account listed as a Test user on the OAuth consent screen.") from e
     TOKEN.write_text(creds.to_json())
     os.chmod(TOKEN, 0o600)
 
@@ -46,7 +63,10 @@ def build_service():
         raise RuntimeError("Google Drive not authorised: run `python -m me3 gdrive-auth` first (see connectors/gdrive.py)")
     creds = Credentials.from_authorized_user_file(str(TOKEN), SCOPES)
     if creds.expired and creds.refresh_token:
-        creds.refresh(Request())
+        try:
+            creds.refresh(Request())
+        except Exception as e:  # noqa: BLE001  (e.g. invalid_grant: token revoked, or expired after 7 days while the app is in Testing mode)
+            raise RuntimeError(f"Google token refresh failed ({e}). Run `python -m me3 gdrive-auth` again.") from e
         TOKEN.write_text(creds.to_json())
     return build("drive", "v3", credentials=creds, cache_discovery=False)
 

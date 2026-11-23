@@ -49,10 +49,14 @@ def search(q: str, limit: int = 10):
 
 
 @app.command("gdrive-auth")
-def gdrive_auth():
-    """One-time Google Drive OAuth (needs credentials.json in the project root)."""
+def gdrive_auth(no_browser: bool = False):
+    """One-time Google Drive OAuth (client_secret_*.json or credentials.json in the project root)."""
     from .connectors import gdrive
-    gdrive.authorize()
+    try:
+        gdrive.authorize(open_browser=not no_browser)
+    except RuntimeError as e:
+        print(f"[red]{e}[/]")
+        raise typer.Exit(1)
     print("[green]authorised[/]; token saved. Now: python -m me3 add-gdrive")
 
 
