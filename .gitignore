@@ -1,16 +1,20 @@
-.venv/
-libs/
-models/
-__pycache__/
-*.pyc
+# Secrets: never commit (repo is public)
 .env
 credentials.json
 token.json
-*.db
-*.db-*
+client_secret*.json
+# Bulky / regenerable (see README "SETUP COMMANDS" to recreate)
+libs/
+models/
 data/
+.pycache/
 .uv-cache/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
 dist/
 build/
 *.egg-info/
-.pycache/
+*.db
+*.db-*
+.~lock*
