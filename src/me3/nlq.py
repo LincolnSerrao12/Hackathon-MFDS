@@ -50,6 +50,7 @@ def expand(phrase: str) -> str:
     return (phrase + " " + " ".join(extra)).strip()
 
 
+VISUAL = {"screenshot", "screenshots", "photo", "photos", "picture", "pictures", "pic", "pics", "image", "images"}
 EDGE = {"from", "in", "of", "on", "at", "the", "a", "an", "for", "to", "with", "by", "my", "me", "i", "and", "find", "show", "get", "last", "past", "file", "files"}
 
 
@@ -115,14 +116,19 @@ def parse_full(q: str, now: datetime | None = None) -> tuple[str, dict, str]:
 
     # --- file type words
     words = re.findall(r"[\w]+", t)
-    kinds, exts, keep = [], [], []
+    kinds, exts, keep, kind_words = [], [], [], []
     for w in words:
         if w in KIND_WORDS:
             kinds.append(KIND_WORDS[w])
+            kind_words.append(w)
         elif w in EXT_WORDS:
             exts += EXT_WORDS[w]
         else:
             keep.append(w)
+    if len(set(kinds)) > 1 and any(KIND_WORDS[w] == "image" and w in VISUAL for w in kind_words):
+        # "screenshots of code" / "photos of documents": the picture noun is the type, the other word is the subject
+        keep += [w for w in kind_words if KIND_WORDS[w] != "image"]
+        kinds = ["image"]
     if kinds:
         f["kinds"] = sorted(set(kinds))
     if exts:

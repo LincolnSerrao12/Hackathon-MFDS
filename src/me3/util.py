@@ -15,7 +15,10 @@ EXT2KIND = {e: k for k, exts in KINDS.items() for e in exts}
 TEXT_EXTS = set(["txt", "md", "rst", "tex", "csv", "tsv", "html", "htm", "log", "json", "yml", "yaml", "xml", "ini", "cfg", "toml"]) | set(KINDS["code"]) - {"ipynb"}
 EXTRACTABLE = TEXT_EXTS | {"pdf", "docx", "gdoc", "gsheet", "gslides"}
 
-IGNORE_DIRS = {".git", "node_modules", "__pycache__", ".cache", ".venv", "venv", ".uv-cache", ".mypy_cache", ".pytest_cache"}
+IGNORE_DIRS = {".git", "node_modules", "__pycache__", ".cache", ".venv", "venv", ".uv-cache", ".mypy_cache", ".pytest_cache",
+               # credentials / app state / package stores: never index these when scanning a whole home folder
+               ".ssh", ".gnupg", ".pki", ".aws", ".kube", ".docker", ".config", ".local", ".var", ".claude", ".mozilla",
+               ".npm", ".cargo", ".rustup", ".pycache", "site-packages", "dist-packages", "Trash", ".Trash"}
 PSEUDO_FS = {"/proc", "/sys", "/dev", "/run"}
 
 

@@ -22,14 +22,17 @@ def _hash_file(path: str, partial: bool) -> str:
     return h.hexdigest()
 
 
+MAX_DUP_BYTES = 512 * 1024 * 1024  # hashing multi-GB files (games, VM images) would take minutes; large_files() lists those
+
+
 def find_duplicates(conn, min_size: int = 1024, limit_groups: int = 100, source_id: int | None = None) -> dict:
     """size -> partial hash -> full hash. Only local sources are hashed (remote needs a download)."""
     where = "AND source_id=?" if source_id else ""
     args = [min_size] + ([source_id] if source_id else [])
     cand = conn.execute(
         f"""SELECT f.id,f.path,f.size,f.mtime,f.hash FROM files f JOIN sources s ON s.id=f.source_id
-            WHERE s.kind='local' AND f.size>=? {where.replace('source_id', 'f.source_id')}
-              AND f.size IN (SELECT size FROM files WHERE size>=? GROUP BY size HAVING count(*)>1)""",
+            WHERE s.kind='local' AND f.size>=? AND f.size<={MAX_DUP_BYTES} {where.replace('source_id', 'f.source_id')}
+              AND f.size IN (SELECT size FROM files WHERE size>=? AND size<={MAX_DUP_BYTES} GROUP BY size HAVING count(*)>1)""",
         args + [min_size],
     ).fetchall()
     by_size = defaultdict(list)
@@ -55,6 +58,7 @@ def find_duplicates(conn, min_size: int = 1024, limit_groups: int = 100, source_
                     full[hv].append(r)
                 except OSError:
                     pass
+            conn.commit()  # release the write lock between buckets so the indexer is never starved
             for hv, g in full.items():
                 if len(g) > 1:
                     g.sort(key=lambda r: r["mtime"])

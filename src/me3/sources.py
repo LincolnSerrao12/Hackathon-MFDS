@@ -1,4 +1,4 @@
-"""Storage sources behind one interface: walk / stat / fetch. Local here; SFTP and GDrive in connectors/."""
+"""Storage sources behind one interface: walk / stat / fetch. Local here; Google Drive in connectors/."""
 import json
 import os
 from contextlib import contextmanager
@@ -25,14 +25,18 @@ class LocalSource:
         self.id, self.root, self.name, self.config = id, os.path.abspath(root), name or root, config or {}
 
     def _skip_dir(self, path: str, name: str) -> bool:
-        if name in IGNORE_DIRS or path in PSEUDO_FS:
+        if name in IGNORE_DIRS or name.startswith(".") or path in PSEUDO_FS:  # hidden dirs hold app state, not user files
             return True
+        if path in (str(db.ROOT / "libs"), str(db.ROOT / "models")):
+            return True  # this project's bundled libraries and model weights
         try:
             return os.path.samefile(path, db.DB_PATH.parent)
         except OSError:
             return False
 
     def walk(self, start: str | None = None):
+        if start and self._skip_dir(os.path.abspath(start), os.path.basename(start)):
+            return
         stack = [start or self.root]
         while stack:
             d = stack.pop()
@@ -95,9 +99,6 @@ def _build(r):
     cfg = json.loads(r["config"] or "{}")
     if r["kind"] == "local":
         return LocalSource(r["id"], r["root"], r["name"], cfg)
-    if r["kind"] == "sftp":
-        from .connectors.sftp import SftpSource
-        return SftpSource(r["id"], r["root"], r["name"], cfg)
     if r["kind"] == "gdrive":
         from .connectors.gdrive import GDriveSource
         return GDriveSource(r["id"], r["root"], r["name"], cfg)

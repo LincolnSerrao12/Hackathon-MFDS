@@ -33,3 +33,15 @@ def test_payload_strips_home_and_pii():
     s = str(p)
     assert home not in s and "rahul.s@example.com" not in s and "ABCDE1234F" not in s
     assert p["items"][0]["year"] == "2025" and p["redacted"]
+
+
+def test_password_phrasings():
+    leaks = {"my password is hunter2": "hunter2", "passwd hunter2": "hunter2", "pass: qwerty": "qwerty", "Password - S3cret!x": "S3cret!x",
+             "PIN: 4821": "4821", "the wifi password is hunter2.": "hunter2", "password for gmail is Abc@12345": "Abc@12345",
+             "OTP is 482910": "482910", "pwd=abc123": "abc123", "token: ghp_abcdefghijklmnopqrstuvwxyz0123456789": "ghp_"}
+    for text, secret in leaks.items():
+        out = privacy.redact(text, use_presidio=False).text
+        assert secret not in out and "<SECRET_1>" in out, (text, out)
+    assert privacy.redact("password: hunter2", use_presidio=False).text == "password: <SECRET_1>"  # keyword stays readable
+    for ok in ("please reset my password tomorrow", "I will pass the exam", "forgot password? click here", "pin the tab"):
+        assert privacy.redact(ok, use_presidio=False).text == ok

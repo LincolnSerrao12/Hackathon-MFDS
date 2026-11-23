@@ -16,7 +16,14 @@ _REGEX = {
     "UPI_ID": r"\b[\w.\-]{2,}@(?:upi|ybl|okaxis|okhdfcbank|oksbi|okicici|paytm|ibl|axl)\b",
     "IN_PASSPORT": r"\b[A-PR-WYa-pr-wy][1-9]\d\s?\d{4}[1-9]\b",
     "BANK_ACCOUNT": r"(?i)\b(?:a/?c|acct?|account)(?:\s*(?:no|number|#))?[\s.:]*\d{9,18}\b",
-    "SECRET": r"(?i)\b(?:sk-[A-Za-z0-9_\-]{16,}|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{30,}|(?:password|passwd|pwd|api[_-]?key|secret|token)\s*[:=]\s*\S+)",
+    "SECRET": r"\b(?:sk-[A-Za-z0-9_\-]{16,}|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{30,}|AIza[0-9A-Za-z_\-]{30,}|xox[abpr]-[A-Za-z0-9\-]{10,})",
+    # "<keyword> <separator> <value>": only the value (group v) is replaced, so "password: hunter2" -> "password: <SECRET_1>".
+    # Separator is ':', '=', '-', 'is' / 'was', or plain space when the value looks like a secret (has a digit or symbol).
+    "SECRET_KV": r"(?i)\b(?:password|passwd|passcode|passphrase|pass\s*word|pwd|pw|pass|pin|mpin|upi\s+pin|otp|"
+                 r"api[_\s-]?key|secret(?:[_\s-]?key)?|access[_\s-]?key|private[_\s-]?key|(?:auth|access|bearer)?[_\s-]?token)"
+                 r"(?:\s+(?:for|of|to)\s+[\w.@\-]+)?"
+                 r"(?:\s*(?:[:=]|[-\u2013]|\bis\b|\bwas\b)\s*(?:\bis\b\s*)?|\s+(?=[^\s,;]*[\d@#$%^&*!?]))"
+                 r"(?P<v>(?=[^\s,;]{3,})[^\s,;]*[^\s,;.!?)\]\"'])",
     "CARD": r"\b(?:\d[ -]?){13,19}\b",
     "PHONE": r"(?<!\d)(?:\+?91[\s-]?)?[6-9]\d{4}[\s-]?\d{5}(?!\d)|(?<!\d)\+\d{1,3}[\s-]?\d{2,4}[\s-]?\d{3,4}[\s-]?\d{3,4}(?!\d)",
     "EMAIL": r"\b[\w.+\-]+@[\w\-]+\.[\w.\-]+\b",
@@ -69,7 +76,8 @@ def detect(text: str, use_presidio: bool = True) -> list[Finding]:
         for m in rx.finditer(text):
             if typ == "CARD" and not _luhn(re.sub(r"\D", "", m.group())):
                 continue
-            found.append(Finding(typ, m.start(), m.end()))
+            start, end = m.span("v") if "v" in rx.groupindex else m.span()  # keyed secrets: redact the value only
+            found.append(Finding("SECRET" if typ == "SECRET_KV" else typ, start, end))
     if use_presidio and (a := _get_analyzer()) and text.strip():
         for r in a.analyze(text=text[:100_000], language="en", entities=sorted(_PRESIDIO_KEEP)):
             if r.score >= 0.4:

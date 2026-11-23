@@ -1,9 +1,6 @@
-import socket
 from pathlib import Path
 
-import pytest
-
-from me3 import crawler, db, extract, search, sources
+from me3 import crawler, db, search, sources
 from me3.connectors.gdrive import GDriveSource
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -42,24 +39,3 @@ def test_gdrive_indexes_through_crawler(tmp_path):
     src = GDriveSource(sid, service=FakeDrive())
     assert crawler.scan(conn, src)["new"] == 2
     assert search.search(conn, "fee receipt", semantic=False)["total"] == 1  # filename match; .gdoc is a document
-
-
-def _sshd_up():
-    try:
-        socket.create_connection(("127.0.0.1", 2222), timeout=0.5).close()
-        return (ROOT / "data/sshd/client").exists()
-    except OSError:
-        return False
-
-
-@pytest.mark.skipif(not _sshd_up(), reason="needs the test sshd on :2222 (see README: SFTP test server)")
-def test_sftp_roundtrip(tmp_path):
-
-    conn = db.connect(tmp_path / "s.db")
-    cfg = {"host": "127.0.0.1", "port": 2222, "username": __import__("getpass").getuser(), "key_file": str(ROOT / "data/sshd/client")}
-    sid = sources.add_source(conn, "sftp", str(ROOT / "data/sftp_demo"), "nas", cfg)
-    src = sources.load(conn, sid)
-    src.test()
-    assert crawler.scan(conn, src)["new"] >= 2
-    extract.run_pending(conn)
-    assert search.search(conn, "tuition", semantic=False)["total"] >= 1

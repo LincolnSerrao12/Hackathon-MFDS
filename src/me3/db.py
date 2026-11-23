@@ -10,7 +10,7 @@ DB_PATH = Path(os.environ.get("ME3_DB", ROOT / "data" / "me3.db"))
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS sources(
   id INTEGER PRIMARY KEY,
-  kind TEXT NOT NULL,            -- local | sftp | gdrive
+  kind TEXT NOT NULL,            -- local | gdrive
   name TEXT NOT NULL,
   root TEXT NOT NULL,
   config TEXT DEFAULT '{}'

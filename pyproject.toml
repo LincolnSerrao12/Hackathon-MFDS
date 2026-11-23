@@ -23,7 +23,7 @@ dependencies = [
 [project.optional-dependencies]
 privacy = ["presidio-analyzer", "presidio-anonymizer", "spacy"]
 llm = ["anthropic", "python-dotenv"]
-connectors = ["paramiko", "google-api-python-client", "google-auth-oauthlib"]
+connectors = ["google-api-python-client", "google-auth-oauthlib"]
 semantic = ["sentence-transformers", "sqlite-vec", "numpy", "pillow"]
 ocr = ["pytesseract", "pillow"]
 dev = ["pytest", "ruff"]

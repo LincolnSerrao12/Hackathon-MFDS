@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
-from . import cleanup, db, embed, llm, privacy, sources
+from . import auth, cleanup, db, embed, llm, privacy, sources
 from . import search as searchmod
 from .indexer import indexer
 
@@ -25,6 +25,8 @@ async def lifespan(app):
 
 
 app = FastAPI(title="ME3 File System Intelligence", lifespan=lifespan)
+app.middleware("http")(auth.require_login)
+app.include_router(auth.router)
 
 
 class SourceIn(BaseModel):
@@ -81,13 +83,22 @@ def add_source(s: SourceIn):
         import os
         if not os.path.isdir(s.root):
             raise HTTPException(400, f"not a directory: {s.root}")
-    elif s.kind in ("sftp", "gdrive"):
-        if s.kind == "sftp":
-            from .connectors.sftp import SftpSource
-            probe = SftpSource(0, s.root or "/", s.name, s.config)
-        else:
-            from .connectors.gdrive import GDriveSource
-            probe = GDriveSource(0, s.root or "/", s.name, s.config)
+        new = os.path.realpath(s.root)
+        for r in db.get().execute("SELECT name, root FROM sources WHERE kind='local'"):
+            old = os.path.realpath(r["root"])
+            if new == old or new.startswith(old.rstrip("/") + "/"):
+                raise HTTPException(400, f"already indexed: {new} is inside '{r['name']}' ({old}), so its files are searchable already")
+            if old.startswith(new.rstrip("/") + "/"):
+                raise HTTPException(400, f"{new} contains the existing source '{r['name']}' ({old}); remove that one first to avoid duplicate results")
+    elif s.kind == "gdrive":
+        from .connectors.gdrive import GDriveSource
+        probe = GDriveSource(0, s.root or "/", s.name, s.config)
+        root = s.root or "/"
+        for r in db.get().execute("SELECT name, root FROM sources WHERE kind='gdrive'"):
+            if r["root"] == root:
+                raise HTTPException(400, f"'{r['name']}' already covers that")
+            if "/" in (root, r["root"]):
+                raise HTTPException(400, f"'{r['name']}' ({'whole Drive' if r['root'] == '/' else r['root']}) overlaps: remove it first to avoid duplicate results")
         try:
             probe.test()
         except Exception as e:
@@ -97,6 +108,51 @@ def add_source(s: SourceIn):
     sid = sources.add_source(db.get(), s.kind, s.root or "/", s.name, s.config)
     indexer.start_source(sid)
     return {"id": sid}
+
+
+@app.get("/api/gdrive/status")
+def gdrive_status():
+    from .connectors import gdrive
+    try:
+        client = gdrive.find_client_secret().name
+    except RuntimeError:
+        client = None
+    added = db.get().execute("SELECT 1 FROM sources WHERE kind='gdrive'").fetchone() is not None
+    return {"client_file": client, "authorised": gdrive.TOKEN.exists(), "added": added, "authorising": _gd_auth.get("running", False),
+            "error": _gd_auth.get("error")}
+
+
+_gd_auth: dict = {}
+
+
+@app.post("/api/gdrive/authorize")
+def gdrive_authorize():
+    """Runs the one-time Google consent in the server's own browser (this app is local). Same client_secret file as sign-in."""
+    import threading
+
+    from .connectors import gdrive
+    if _gd_auth.get("running"):
+        return {"ok": True}
+    gdrive.find_client_secret()
+
+    def run():
+        _gd_auth.update(running=True, error=None)
+        try:
+            gdrive.authorize(open_browser=True)
+        except Exception as e:  # noqa: BLE001
+            _gd_auth["error"] = str(e)[:300]
+        _gd_auth["running"] = False
+    threading.Thread(target=run, daemon=True, name="gdrive-auth").start()
+    return {"ok": True}
+
+
+@app.delete("/api/sources/{sid}")
+def remove_source(sid: int):
+    if not sources.load(db.get(), sid):
+        raise HTTPException(404)
+    if not indexer.remove_source(sid):
+        raise HTTPException(409, "this source is being indexed right now; try again when it is idle")
+    return {"ok": True}
 
 
 @app.post("/api/sources/{sid}/reindex")
@@ -175,14 +231,19 @@ def suggest(s: SuggestIn):
     items = [{"path": r["path"], "name": r["name"], "kind": r["kind"], "ext": r["ext"], "size": r["size"],
               "modified": datetime.fromtimestamp(r["mtime"]).strftime("%Y-%m-%d %H:%M")} for r in rows]
     payload = privacy.prepare_payload(items)
-    out = {"ideas": ideas, "payload": payload, "llm_available": llm.available(), "sent": False, "ai": None}
+    out = {"ideas": ideas, "payload": payload, "llm_available": llm.available(), "local": llm.is_local(), "sent": False, "ai": None}
     if s.send:
         if not llm.available():
-            raise HTTPException(400, "No ANTHROPIC_API_KEY configured (put it in .env). Showing on-device suggestions only.")
+            raise HTTPException(400, "No AI model available: start Ollama with the gemma4:e4b model (or set ME3_LLM_PROVIDER + a key in .env). Showing on-device suggestions only.")
         try:
             out["ai"], out["sent"] = llm.organise(payload), True
         except Exception as e:  # noqa: BLE001
             name = type(e).__name__
+            if isinstance(e, llm.LLMError):
+                code = {400: 400, 401: 401, 403: 401, 404: 400, 429: 429}.get(e.status, 502)
+                hint = {401: "Gemini rejected the key: create one at aistudio.google.com/apikey.",
+                        429: "Gemini free-tier rate limit hit: wait a minute and retry."}.get(code, f"Gemini request failed: {e}")
+                raise HTTPException(code, hint) from e
             if name == "AuthenticationError":
                 raise HTTPException(401, "Anthropic rejected the key. It must be a standard API key (sk-ant-api...) from console.anthropic.com, not an sk-ant-usr key.") from e
             if "credit balance" in str(e):
@@ -195,12 +256,12 @@ def suggest(s: SuggestIn):
 
 @app.get("/api/llm/status")
 def llm_status():
-    return {"cloud_available": llm.available(), "model": llm.MODEL}
+    return {"cloud_available": llm.available() and not llm.is_local(), "ai_available": llm.available(), "local": llm.is_local(), "provider": llm.provider(), "model": llm.model_name()}
 
 
 @app.get("/api/thumb/{fid}")
-def thumb(fid: int):
-    """256px JPEG thumbnail for an image file (local or remote); generated on the fly, never leaves the machine."""
+def thumb(fid: int, size: int = Query(256, ge=64, le=1280)):
+    """JPEG thumbnail (default 256px; the UI preview asks for a larger one) for an image file (local or remote); generated on the fly, never leaves the machine."""
     import io
 
 
@@ -212,9 +273,9 @@ def thumb(fid: int):
     try:
         with src.fetch(r["path"]) as local:
             im = embed._load_image(local)
-        im.thumbnail((256, 256))
+        im.thumbnail((size, size))
         buf = io.BytesIO()
-        im.save(buf, "JPEG", quality=80)
+        im.save(buf, "JPEG", quality=82)
     except Exception as e:
         raise HTTPException(404, str(e)) from e
     return Response(buf.getvalue(), media_type="image/jpeg", headers={"Cache-Control": "max-age=3600"})

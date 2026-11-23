@@ -70,7 +70,7 @@ def read_text(path: str, ext: str) -> str:
     return raw.decode("utf-8", "ignore")[:MAX_CHARS]
 
 
-def run_pending(conn, progress=None, should_stop=lambda: False, batch: int = 200, limit: int | None = None) -> int:
+def run_pending(conn, progress=None, should_stop=lambda: False, batch: int = 25, limit: int | None = None) -> int:
     """Extract text for files with extracted=0. Returns number processed."""
     cache, done = {}, 0
     while not should_stop():
@@ -88,6 +88,7 @@ def run_pending(conn, progress=None, should_stop=lambda: False, batch: int = 200
                     src = cache.get(r["source_id"]) or cache.setdefault(r["source_id"], srcmod.load(conn, r["source_id"]))
                     with src.fetch(r["path"]) as local:
                         body = read_text(local, r["ext"])
+                    body = body.encode("utf-8", "ignore").decode("utf-8")  # drop lone surrogates (bad PDFs) that crash sqlite
                     status = 1 if body.strip() else 2
                 except Exception:
                     status = 3

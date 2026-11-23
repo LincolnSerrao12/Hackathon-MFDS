@@ -107,21 +107,59 @@ def run_pending(conn, progress=None, should_stop=lambda: False, limit: int | Non
     # nothing to embed for files with no text and not an embeddable image -> mark skipped (only once extraction is final)
     conn.execute("UPDATE files SET embedded=2 WHERE embedded=0 AND extracted IN (2,3) AND NOT (kind='image' AND ext IN ('jpg','jpeg','png','webp','bmp','gif','tif','tiff'))")
     conn.commit()
-    while not should_stop():  # ---- text
+    cache: dict = {}
+
+    def text_batch() -> int:
         rows = conn.execute(
             "SELECT f.id,f.name,fts.body FROM files f JOIN fts ON fts.rowid=f.id WHERE f.embedded=0 AND f.extracted=1 LIMIT ?", (batch,)).fetchall()
         if not rows:
-            break
+            return 0
         vecs = embed_text([f"{r['name']}. {(r['body'] or '')[:1500]}" for r in rows])
         ids = [r["id"] for r in rows]
         delete_vectors(conn, ids)
         conn.executemany("INSERT INTO vec_text(file_id, embedding) VALUES (?,?)", [(i, _blob(v)) for i, v in zip(ids, vecs)])
         conn.execute(f"UPDATE files SET embedded=1 WHERE id IN ({','.join('?' * len(ids))})", ids)
         conn.commit()
-        done += len(ids)
+        return len(ids)
+
+    def image_batch() -> int:
+        rows = conn.execute(
+            "SELECT id,source_id,path,ext,size FROM files WHERE embedded=0 AND kind='image' AND ext IN ('jpg','jpeg','png','webp','bmp','gif','tif','tiff') LIMIT ?",
+            (16,)).fetchall()
+        if not rows:
+            return 0
+        ims, ok, bad = [], [], []
+        for r in rows:
+            if r["size"] > MAX_IMG_BYTES:
+                bad.append(r["id"])
+                continue
+            try:
+                src = cache.get(r["source_id"]) or cache.setdefault(r["source_id"], srcmod.load(conn, r["source_id"]))
+                with src.fetch(r["path"]) as local:
+                    ims.append(_load_image(local))
+                ok.append(r["id"])
+            except Exception:
+                bad.append(r["id"])
+        if ims:
+            vecs = _model(IMG_MODEL).encode(ims, batch_size=16, normalize_embeddings=True, show_progress_bar=False)
+            delete_vectors(conn, ok)
+            conn.executemany("INSERT INTO vec_img(file_id, embedding) VALUES (?,?)", [(i, _blob(v)) for i, v in zip(ok, vecs)])
+            conn.execute(f"UPDATE files SET embedded=1 WHERE id IN ({','.join('?' * len(ok))})", ok)
+        if bad:
+            conn.execute(f"UPDATE files SET embedded=2 WHERE id IN ({','.join('?' * len(bad))})", bad)
+        conn.commit()
+        return len(rows)
+
+    # Alternate text and image batches: a huge text backlog must not starve photo search.
+    while not should_stop():
+        n = image_batch() + text_batch()
+        if n == 0:
+            break
+        done += n
         progress and progress(done)
         if limit and done >= limit:
-            return done
+            break
+    return done
     cache = {}
     while not should_stop():  # ---- images
         rows = conn.execute(

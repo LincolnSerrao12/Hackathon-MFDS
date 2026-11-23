@@ -95,12 +95,21 @@ class GDriveSource:
 
     def test(self) -> None:
         self.svc.about().get(fields="user").execute()
+        if self.root != "/":
+            folders = list(self._list_all(f"trashed=false and mimeType='{FOLDER}'"))
+            if not self._scope_ids(folders):
+                raise RuntimeError(f"no Drive folder named or with id '{self.root.strip('/')}'")
 
-    def _list_all(self):
+    def _scope_ids(self, folders) -> set[str]:
+        """Folder ids selected by root: '/' = whole Drive (empty set means no restriction), else folder id or exact name."""
+        key = self.root.strip("/")
+        return {f["id"] for f in folders if f["id"] == key or f["name"].lower() == key.lower()}
+
+    def _list_all(self, q: str = "trashed=false"):
         token = None
         while True:
             r = self.svc.files().list(
-                q="trashed=false", pageSize=1000, pageToken=token,
+                q=q, pageSize=1000, pageToken=token,
                 fields="nextPageToken, files(id,name,mimeType,size,modifiedTime,parents)",
             ).execute()
             yield from r.get("files", [])
@@ -119,9 +128,23 @@ class GDriveSource:
             par = (f.get("parents") or [None])[0]
             return folder_path(par, depth + 1) + "/" + f["name"] if par else "/" + f["name"]
 
+        scope = self._scope_ids([f for f in files if f["mimeType"] == FOLDER]) if self.root != "/" else set()
+        if self.root != "/" and not scope:
+            raise RuntimeError(f"Drive folder '{self.root.strip('/')}' not found")  # never return an empty scan: it would wipe the index
+
+        def in_scope(f) -> bool:
+            if not scope:
+                return True
+            fid, depth = (f.get("parents") or [None])[0], 0
+            while fid and depth < 30:
+                if fid in scope:
+                    return True
+                fid, depth = ((by_id.get(fid) or {}).get("parents") or [None])[0], depth + 1
+            return False
+
         self._ids.clear()
         for f in files:
-            if f["mimeType"] == FOLDER:
+            if f["mimeType"] == FOLDER or not in_scope(f):
                 continue
             native = NATIVE.get(f["mimeType"])
             if f["mimeType"].startswith("application/vnd.google-apps.") and not native:

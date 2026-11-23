@@ -66,13 +66,3 @@ def add_gdrive(name: str = "Google Drive"):
     GDriveSource(0).test()
     sid = sources.add_source(db.connect(), "gdrive", "/", name)
     print(f"added source {sid}; start `python -m me3 serve` to index it (or use the UI rescan)")
-
-
-@app.command("add-sftp")
-def add_sftp(host: str, root: str = "/", username: str = "", password: str = "", key_file: str = "", port: int = 22, name: str = ""):
-    """Register an SFTP server/NAS as a source."""
-    from .connectors.sftp import SftpSource
-    cfg = {"host": host, "port": port, "username": username, "password": password, "key_file": key_file}
-    SftpSource(0, root, name, cfg).test()
-    sid = sources.add_source(db.connect(), "sftp", root, name or f"sftp://{host}", cfg)
-    print(f"added source {sid}")

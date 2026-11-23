@@ -38,6 +38,20 @@ class Indexer:
         except Exception as e:  # keep the app alive, surface the error in status
             st["state"], st["error"] = "error", repr(e)
 
+    def remove_source(self, sid: int) -> bool:
+        """Forget a source: stop its watcher and drop its index rows (never touches the files themselves)."""
+        if self.status.get(sid, {}).get("state") in ("queued", "scanning", "extracting", "embedding"):
+            return False
+        w = self.watchers.pop(sid, None)
+        if w:
+            w.stop()
+        self.status.pop(sid, None)
+        conn = db.connect()
+        crawler.remove_ids(conn, [r["id"] for r in conn.execute("SELECT id FROM files WHERE source_id=?", (sid,))])
+        conn.execute("DELETE FROM sources WHERE id=?", (sid,))
+        conn.commit()
+        return True
+
     def resume_all(self):
         """On server start: rescan + watch every registered source (catches changes made while offline)."""
         for s in sources.load_all(db.connect()):
