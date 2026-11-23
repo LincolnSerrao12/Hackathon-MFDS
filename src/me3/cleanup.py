@@ -2,12 +2,14 @@
 import hashlib
 import os
 import shutil
+import stat
 import time
 from collections import defaultdict
+from pathlib import Path
+from urllib.parse import quote
 
-from . import crawler, db
+from . import crawler
 
-TRASH = db.ROOT / "data" / "trash"
 PARTIAL = 64 * 1024
 
 
@@ -182,23 +184,87 @@ def summary(conn) -> dict:
             "stale_media_files": len(stale), "stale_media_bytes": sum(f["size"] for f in stale)}
 
 
+def _home_trash() -> Path:
+    return Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share") / "Trash"
+
+
+def _mount_point(path: Path) -> Path:
+    path = path.resolve()
+    while not os.path.ismount(path):
+        path = path.parent
+    return path
+
+
+def _trash_dir_for(path: str) -> tuple[Path, Path | None]:
+    """Pick the freedesktop.org trash for a file: home trash on the same device, else $topdir/.Trash/$uid or
+    $topdir/.Trash-$uid. Returns (trash_dir, topdir); topdir is set when .trashinfo Path is relative to it."""
+    home = _home_trash()
+    home.mkdir(parents=True, exist_ok=True)
+    if os.stat(path).st_dev == os.stat(home).st_dev:
+        return home, None
+    top, uid = _mount_point(Path(path).parent), os.getuid()
+    shared = top / ".Trash"
+    try:
+        st = os.lstat(shared)
+        if stat.S_ISDIR(st.st_mode) and st.st_mode & stat.S_ISVTX:
+            d = shared / str(uid)
+            d.mkdir(mode=0o700, exist_ok=True)
+            return d, top
+    except OSError:
+        pass
+    d = top / f".Trash-{uid}"
+    try:
+        d.mkdir(mode=0o700, exist_ok=True)
+        return d, top
+    except OSError:
+        return home, None  # cannot write on that drive: fall back to a copy into the home trash
+
+
+def send_to_trash(path: str) -> str:
+    """Move one file/folder to the desktop Trash (freedesktop.org spec), so the file manager can restore it."""
+    path = os.path.abspath(path)
+    if not os.path.lexists(path):
+        raise FileNotFoundError(f"not found on disk: {path}")
+    trash, top = _trash_dir_for(path)
+    (trash / "files").mkdir(parents=True, exist_ok=True)
+    (trash / "info").mkdir(parents=True, exist_ok=True)
+    stem, ext = os.path.splitext(os.path.basename(path))
+    rel = os.path.relpath(path, top) if top else path
+    info_text = f"[Trash Info]\nPath={quote(rel)}\nDeletionDate={time.strftime('%Y-%m-%dT%H:%M:%S')}\n"
+    for n in range(10000):
+        name = f"{stem}{'.' + str(n) if n else ''}{ext}"
+        info = trash / "info" / f"{name}.trashinfo"
+        try:  # O_EXCL reserves the name atomically, as the spec requires
+            fd = os.open(info, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            continue
+        with os.fdopen(fd, "w") as f:
+            f.write(info_text)
+        if os.path.lexists(trash / "files" / name):
+            os.unlink(info)
+            continue
+        try:
+            shutil.move(path, trash / "files" / name)
+        except BaseException:
+            os.unlink(info)
+            raise
+        return str(trash / "files" / name)
+    raise OSError("could not find a free name in the trash")
+
+
 def trash_files(conn, ids: list[int]) -> dict:
-    """Reversible delete: move local files into data/trash/<timestamp>/ and drop them from the index."""
-    dest = TRASH / time.strftime("%Y%m%d-%H%M%S")
-    moved, errors = [], []
+    """Reversible delete: move local files to the desktop Trash (restorable from the file manager) and drop them from the index."""
+    moved, errors, places = [], [], set()
     for fid in ids:
         r = conn.execute("SELECT f.id,f.path,f.source_id,s.kind FROM files f JOIN sources s ON s.id=f.source_id WHERE f.id=?", (fid,)).fetchone()
         if not r or r["kind"] != "local":
             errors.append({"id": fid, "error": "not a local file"})
             continue
         try:
-            dest.mkdir(parents=True, exist_ok=True)
-            target = dest / f"{fid}__{os.path.basename(r['path'])}"
-            shutil.move(r["path"], target)
-            (dest / "MANIFEST.tsv").open("a").write(f"{target.name}\t{r['path']}\n")
+            places.add(str(Path(send_to_trash(r["path"])).parent.parent))
             moved.append(fid)
         except OSError as e:
             errors.append({"id": fid, "error": str(e)})
     crawler.remove_ids(conn, moved)
     conn.commit()
-    return {"moved": len(moved), "errors": errors, "trash_dir": str(dest) if moved else None}
+    return {"moved": len(moved), "errors": errors, "trash_dir": ", ".join(sorted(places)) or None}

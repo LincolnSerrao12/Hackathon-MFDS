@@ -429,7 +429,7 @@ class TrashIn(BaseModel):
 
 @app.post("/api/cleanup/trash")
 def cleanup_trash(t: TrashIn):
-    """Reversible: files are moved to data/trash/<timestamp>/ with a MANIFEST of original paths."""
+    """Reversible: files go to the desktop Trash (freedesktop.org spec), restorable from the file manager."""
     return cleanup.trash_files(db.get(), t.ids)
 
 
