@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ME3 File System Intelligence</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --bg:#0f1218; --panel:#171b24; --line:#262c39; --txt:#e6e9ef; --mute:#8b93a7; --acc:#5b9dff; --ok:#3ecf8e; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--txt); }
+  header { padding:18px 28px; border-bottom:1px solid var(--line); display:flex; align-items:baseline; gap:14px; }
+  header h1 { margin:0; font-size:18px; } header span { color:var(--mute); }
+  main { display:grid; grid-template-columns:270px 1fr; gap:22px; padding:22px 28px; max-width:1300px; margin:auto; }
+  aside .card, .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:16px; }
+  h3 { margin:0 0 10px; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--mute); }
+  input, select, button { font:inherit; color:var(--txt); background:#0d1016; border:1px solid var(--line); border-radius:7px; padding:8px 10px; }
+  input:focus, select:focus { outline:1px solid var(--acc); }
+  button { cursor:pointer; background:var(--acc); border-color:var(--acc); color:#06121f; font-weight:600; }
+  button.ghost { background:transparent; color:var(--txt); border-color:var(--line); }
+  #q { width:100%; font-size:16px; padding:12px 14px; }
+  .row { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; } .row > * { flex:1; min-width:90px; }
+  .chips { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+  .chip { font-size:12px; padding:3px 9px; border-radius:99px; background:#1f2735; color:var(--acc); }
+  .hit { padding:12px 4px; border-bottom:1px solid var(--line); }
+  .hit .nm { font-weight:600; } .hit .pth { color:var(--mute); font-size:12px; word-break:break-all; }
+  .hit .snip { color:#c3c9d8; font-size:13px; margin-top:3px; } mark { background:#3a4a1c; color:#d9f09a; border-radius:3px; padding:0 2px; }
+  .meta { color:var(--mute); font-size:12px; } .tag { font-size:11px; padding:1px 7px; border-radius:5px; background:#222a38; margin-right:6px; }
+  .bar { height:6px; border-radius:3px; background:#222a38; overflow:hidden; margin-top:4px; } .bar i { display:block; height:100%; background:var(--ok); }
+  .kv { display:flex; justify-content:space-between; font-size:13px; margin:3px 0; }
+  small { color:var(--mute); }
+</style>
+</head>
+<body>
+<header><h1>ME3 File System Intelligence</h1><span>local-first search &middot; private by design</span></header>
+<main>
+<aside>
+  <div class="card"><h3>Index</h3><div id="stats">…</div></div>
+  <div class="card"><h3>Sources</h3><div id="sources"></div>
+    <div class="row"><input id="newroot" placeholder="/path/to/folder" style="flex:3"><button onclick="addSource()" style="flex:1">Add</button></div>
+    <small>Local folders now; SFTP and cloud drives plug into the same list.</small></div>
+</aside>
+<section>
+  <div class="card">
+    <input id="q" placeholder='Try: "fee receipt from last semester", "photos last year", "pdf larger than 5MB"' autofocus>
+    <div class="row">
+      <select id="kind"><option value="">any type</option><option>document</option><option>image</option><option>video</option><option>audio</option><option>code</option><option>archive</option><option>other</option></select>
+      <input id="minmb" type="number" min="0" placeholder="min MB"><input id="maxmb" type="number" min="0" placeholder="max MB">
+      <input id="after" type="date"><input id="before" type="date">
+    </div>
+    <div class="chips" id="parsed"></div>
+  </div>
+  <div class="card"><div id="count" class="meta"></div><div id="results"></div></div>
+</section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const fmt = n => { const u=['B','KB','MB','GB','TB']; let i=0; while(n>=1024&&i<4){n/=1024;i++} return (i?n.toFixed(1):n)+' '+u[i]; };
+const esc = s => s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+let timer;
+async function search() {
+  const p = new URLSearchParams({q: $('q').value});
+  if ($('kind').value) p.set('kind', $('kind').value);
+  if ($('minmb').value) p.set('min_size', Math.round($('minmb').value*1048576));
+  if ($('maxmb').value) p.set('max_size', Math.round($('maxmb').value*1048576));
+  if ($('after').value) p.set('after', new Date($('after').value).getTime()/1000);
+  if ($('before').value) p.set('before', new Date($('before').value).getTime()/1000 + 86400);
+  const t0 = performance.now();
+  const r = await (await fetch('/api/search?' + p)).json();
+  const ms = Math.round(performance.now() - t0);
+  $('count').textContent = `${r.total >= 10001 ? '10,000+' : r.total.toLocaleString()} results · ${ms} ms`;
+  const f = r.filters, chips = [];
+  if (r.text && r.text !== r.query) chips.push('text: ' + r.text);
+  (f.kinds||[]).forEach(k => chips.push('type: ' + k)); (f.exts||[]).forEach(k => chips.push('ext: .' + k));
+  if (f.min_size) chips.push('≥ ' + fmt(f.min_size)); if (f.max_size) chips.push('≤ ' + fmt(f.max_size));
+  if (f.after) chips.push('after ' + new Date(f.after*1000).toISOString().slice(0,10));
+  if (f.before) chips.push('before ' + new Date(f.before*1000).toISOString().slice(0,10));
+  $('parsed').innerHTML = chips.map(c => `<span class="chip">${esc(c)}</span>`).join('');
+  $('results').innerHTML = r.results.map(h => `<div class="hit">
+      <div><span class="tag">${h.kind}</span><span class="nm">${esc(h.name)}</span></div>
+      <div class="pth">${esc(h.path)}</div>
+      ${h.snippet ? `<div class="snip">${h.snippet.replace(/<(?!\/?mark>)/g,'&lt;')}</div>` : ''}
+      <div class="meta">${fmt(h.size)} · ${h.modified} · ${esc(h.source||'')}</div></div>`).join('') || '<div class="meta">No results.</div>';
+}
+async function stats() {
+  const s = await (await fetch('/api/stats')).json();
+  const max = Math.max(1, ...s.by_kind.map(k => k.bytes));
+  $('stats').innerHTML = `<div class="kv"><b>${s.files.toLocaleString()}</b><span>files</span></div>
+    <div class="kv"><b>${fmt(s.bytes)}</b><span>total</span></div>
+    ${s.pending_extraction ? `<div class="kv"><span>pending text extraction</span><b>${s.pending_extraction.toLocaleString()}</b></div>` : ''}` +
+    s.by_kind.map(k => `<div style="margin-top:8px"><div class="kv"><span>${k.kind}</span><span class="meta">${k.n.toLocaleString()} · ${fmt(k.bytes)}</span></div><div class="bar"><i style="width:${100*k.bytes/max}%"></i></div></div>`).join('');
+  const src = await (await fetch('/api/sources')).json();
+  $('sources').innerHTML = src.map(x => { const i = x.index || {};
+    return `<div style="margin-bottom:8px"><b>${esc(x.name)}</b> <span class="tag">${x.kind}</span><br><small>${x.files.toLocaleString()} files · ${i.state || 'idle'}${i.watching ? ' · watching (' + i.watching + ')' : ''}</small>
+    <button class="ghost" style="padding:2px 8px;margin-left:6px" onclick="fetch('/api/sources/${x.id}/reindex',{method:'POST'})">rescan</button></div>`; }).join('') || '<small>No sources yet.</small>';
+}
+async function addSource() {
+  const root = $('newroot').value.trim(); if (!root) return;
+  const r = await fetch('/api/sources', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({kind:'local', root})});
+  if (!r.ok) alert((await r.json()).detail); else $('newroot').value = '';
+  stats();
+}
+['q','kind','minmb','maxmb','after','before'].forEach(id => $(id).addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(search, 180); }));
+search(); stats(); setInterval(stats, 3000);
+</script>
+</body>
+</html>

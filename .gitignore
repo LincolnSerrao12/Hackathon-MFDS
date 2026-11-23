@@ -1,0 +1,12 @@
+.venv/
+libs/
+models/
+__pycache__/
+*.pyc
+.env
+credentials.json
+token.json
+*.db
+*.db-*
+data/
+.uv-cache/
