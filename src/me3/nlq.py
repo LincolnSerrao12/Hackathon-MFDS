@@ -28,6 +28,34 @@ def _sod(d):  # start of day
 
 
 def parse(q: str, now: datetime | None = None) -> tuple[str, dict]:
+    """-> (keyword text without stopwords, filters). See parse_full for the phrase used for semantic matching."""
+    text, f, _ = parse_full(q, now)
+    return text, f
+
+
+# Everyday personal-document vocabulary: used ONLY to widen the on-device meaning query ("fee receipt" -> also payment/tuition).
+SYNONYMS = {
+    "receipt": "payment acknowledgement paid", "fee": "tuition payment", "fees": "tuition payment", "bill": "invoice payment amount",
+    "invoice": "bill payment amount", "statement": "account balance transactions", "salary": "payslip pay income", "payslip": "salary income",
+    "resume": "cv curriculum vitae experience", "cv": "resume curriculum vitae experience", "ticket": "booking confirmation reservation travel",
+    "certificate": "certification degree awarded", "marksheet": "grades marks results transcript", "result": "marks grades scorecard",
+    "insurance": "policy premium coverage", "prescription": "medicine doctor medical", "report": "summary findings analysis",
+}
+
+
+def expand(phrase: str) -> str:
+    extra = []
+    for w in phrase.lower().split():
+        extra += [x for x in SYNONYMS.get(w, "").split() if x not in phrase.lower().split() and x not in extra]
+    return (phrase + " " + " ".join(extra)).strip()
+
+
+EDGE = {"from", "in", "of", "on", "at", "the", "a", "an", "for", "to", "with", "by", "my", "me", "i", "and", "find", "show", "get", "last", "past", "file", "files"}
+
+
+def parse_full(q: str, now: datetime | None = None) -> tuple[str, dict, str]:
+    """-> (keyword text, filters, natural phrase). The phrase keeps inner stopwords ('something to cook for dinner')
+    because embedding models understand full phrases; only filter words and edge connectors are trimmed."""
     now = now or datetime.now()
     t, f = " " + q.lower() + " ", {}
 
@@ -100,4 +128,9 @@ def parse(q: str, now: datetime | None = None) -> tuple[str, dict]:
     if exts:
         f["exts"] = sorted(set(exts))
     text = " ".join(w for w in keep if w not in STOP)
-    return text, f
+    phrase = list(keep)
+    while phrase and phrase[0] in EDGE:
+        phrase.pop(0)
+    while phrase and phrase[-1] in EDGE:
+        phrase.pop()
+    return text, f, " ".join(phrase)

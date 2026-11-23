@@ -55,6 +55,11 @@ def connect(path=None) -> sqlite3.Connection:
     with _init_lock:
         if str(p) not in _init_done:
             c.executescript(SCHEMA)
+            cols = {r[1] for r in c.execute("PRAGMA table_info(files)")}
+            if "embedded" not in cols:  # 0 pending, 1 embedded, 2 skipped/failed
+                c.execute("ALTER TABLE files ADD COLUMN embedded INTEGER NOT NULL DEFAULT 0")
+            c.execute("CREATE INDEX IF NOT EXISTS idx_files_embedded ON files(embedded)")
+            c.commit()
             _init_done.add(str(p))
     return c
 

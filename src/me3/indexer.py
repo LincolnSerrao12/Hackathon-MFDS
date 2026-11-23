@@ -2,7 +2,7 @@
 import threading
 import time
 
-from . import crawler, db, extract, sources
+from . import crawler, db, embed, extract, sources
 from .watcher import Watcher, lower_priority
 
 
@@ -28,6 +28,8 @@ class Indexer:
             st["stats"] = crawler.scan(conn, src, progress=lambda n: st.__setitem__("scanned", n), should_stop=self.stop_evt.is_set)
             st["state"] = "extracting"
             extract.run_pending(conn, progress=lambda n: st.__setitem__("extracted", n), should_stop=self.stop_evt.is_set)
+            st["state"] = "embedding"
+            embed.run_pending(conn, progress=lambda n: st.__setitem__("embedded", n), should_stop=self.stop_evt.is_set)
             st["state"] = "idle"
             st["finished"] = time.time()
             if watch and sid not in self.watchers:

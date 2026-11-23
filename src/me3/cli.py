@@ -4,7 +4,7 @@ import typer
 from rich import print
 from rich.table import Table
 
-from . import crawler, db, extract, sources
+from . import crawler, db, embed, extract, sources
 from . import search as searchmod
 from .util import human_size
 
@@ -19,7 +19,7 @@ def serve(host: str = "127.0.0.1", port: int = 8765):
 
 
 @app.command()
-def index(root: str, name: str = ""):
+def index(root: str, name: str = "", no_embed: bool = False):
     """Index a local folder (no server): crawl + extract."""
     c = db.connect()
     sid = sources.add_source(c, "local", root, name)
@@ -28,7 +28,11 @@ def index(root: str, name: str = ""):
     st = crawler.scan(c, src)
     t1 = time.time()
     n = extract.run_pending(c)
-    print(f"[green]crawl[/] {st} in {t1 - t:.1f}s; [green]extracted[/] {n} in {time.time() - t1:.1f}s")
+    t2 = time.time()
+    print(f"[green]crawl[/] {st} in {t1 - t:.1f}s; [green]extracted[/] {n} in {t2 - t1:.1f}s")
+    if embed.available() and not no_embed:
+        m = embed.run_pending(c)
+        print(f"[green]embedded[/] {m} files in {time.time() - t2:.1f}s")
 
 
 @app.command()
@@ -42,3 +46,29 @@ def search(q: str, limit: int = 10):
     for i in r["results"]:
         t.add_row(i["name"], i["kind"], human_size(i["size"]), i["modified"], i["path"])
     print(t)
+
+
+@app.command("gdrive-auth")
+def gdrive_auth():
+    """One-time Google Drive OAuth (needs credentials.json in the project root)."""
+    from .connectors import gdrive
+    gdrive.authorize()
+    print("[green]authorised[/]; token saved. Now: python -m me3 add-gdrive")
+
+
+@app.command("add-gdrive")
+def add_gdrive(name: str = "Google Drive"):
+    from .connectors.gdrive import GDriveSource
+    GDriveSource(0).test()
+    sid = sources.add_source(db.connect(), "gdrive", "/", name)
+    print(f"added source {sid}; start `python -m me3 serve` to index it (or use the UI rescan)")
+
+
+@app.command("add-sftp")
+def add_sftp(host: str, root: str = "/", username: str = "", password: str = "", key_file: str = "", port: int = 22, name: str = ""):
+    """Register an SFTP server/NAS as a source."""
+    from .connectors.sftp import SftpSource
+    cfg = {"host": host, "port": port, "username": username, "password": password, "key_file": key_file}
+    SftpSource(0, root, name, cfg).test()
+    sid = sources.add_source(db.connect(), "sftp", root, name or f"sftp://{host}", cfg)
+    print(f"added source {sid}")

@@ -4,7 +4,7 @@ import os
 import threading
 import time
 
-from . import crawler, db, extract
+from . import crawler, db, embed, extract
 from .util import IGNORE_DIRS
 
 
@@ -80,7 +80,9 @@ class Watcher:
                     except Exception:
                         pass
                 extract.run_pending(conn, limit=500, should_stop=self.stop_evt.is_set)
+                embed.run_pending(conn, limit=200, should_stop=self.stop_evt.is_set)
             if self.mode == "polling" and time.time() - last_scan > self.rescan_every:
                 crawler.scan(conn, self.src, should_stop=self.stop_evt.is_set)
                 extract.run_pending(conn, should_stop=self.stop_evt.is_set)
+                embed.run_pending(conn, should_stop=self.stop_evt.is_set)
                 last_scan = time.time()

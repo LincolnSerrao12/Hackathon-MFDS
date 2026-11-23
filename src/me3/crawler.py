@@ -22,7 +22,7 @@ def upsert(conn, sid: int, e: Entry, old=None) -> str:
         return "new"
     if old["size"] != e.size or abs(old["mtime"] - e.mtime) > 1e-6:
         conn.execute(
-            "UPDATE files SET size=?,mtime=?,extracted=?,hash=NULL WHERE id=?", (e.size, e.mtime, ex, old["id"])
+            "UPDATE files SET size=?,mtime=?,extracted=?,hash=NULL,embedded=0 WHERE id=?", (e.size, e.mtime, ex, old["id"])
         )
         conn.execute("UPDATE fts SET body='' WHERE rowid=?", (old["id"],))
         return "changed"
@@ -30,6 +30,9 @@ def upsert(conn, sid: int, e: Entry, old=None) -> str:
 
 
 def remove_ids(conn, ids):
+    from . import embed
+
+    embed.delete_vectors(conn, ids)
     for i in range(0, len(ids), 500):
         chunk = ids[i : i + 500]
         q = ",".join("?" * len(chunk))

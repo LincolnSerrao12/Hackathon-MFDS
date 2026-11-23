@@ -5,5 +5,6 @@ export PATH="$ROOT/libs/bin:$PATH"
 export HF_HOME="$ROOT/models"
 export TORCH_HOME="$ROOT/models"
 export SENTENCE_TRANSFORMERS_HOME="$ROOT/models"
-export PYTHONDONTWRITEBYTECODE=1
+export PYTHONPYCACHEPREFIX="$ROOT/.pycache"  # bytecode cache stays inside the project (torch import is very slow without it)
 export UV_CACHE_DIR="$ROOT/.uv-cache"
+export HF_HUB_OFFLINE=1   # models are cached in ./models; no network calls at runtime
