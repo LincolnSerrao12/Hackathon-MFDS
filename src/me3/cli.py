@@ -4,7 +4,8 @@ import typer
 from rich import print
 from rich.table import Table
 
-from . import crawler, db, extract, search as searchmod, sources
+from . import crawler, db, extract, sources
+from . import search as searchmod
 from .util import human_size
 
 app = typer.Typer(add_completion=False, help="ME3 File System Intelligence")

@@ -8,9 +8,9 @@ AI-powered local search, organisation and cleanup for local storage. Private dat
 
 ## STATUS (update every change)
 
-- **Last updated:** 2026-11-23
+- **Last updated:** 2026-11-23 (buildable: `make build` produces dist/me3_fsi-0.1.0-py3-none-any.whl; lint + tests pass)
 - **Phase:** 1 - core keyword search slice DONE and runnable (crawl, extract, FTS5 search, NL filters, live watcher, API, UI).
-- **Run it:** `cd ~/Desktop/AquaFlare/me3-fsi && source env.sh && python -m me3 serve --port 8765` then open http://127.0.0.1:8765 . CLI: `python -m me3 index <folder>`, `python -m me3 search "<query>"`. Tests: `python -m pytest -q tests` (5 pass).
+- **Run it:** `cd ~/Desktop/AquaFlare/me3-fsi && source env.sh && python -m me3 serve --port 8765` then open http://127.0.0.1:8765 . CLI: `python -m me3 index <folder>`, `python -m me3 search "<query>"`. Tests: `make test` (5 pass). Build wheel: `make build` (-> dist/). Lint: `make lint`.
 - **Working:** incremental crawler; text extraction (txt/code/pdf/docx) into FTS5 (bm25, filename boosted); local natural-language parser (`nlq.py`: "last semester", "photos", "pdf", "larger than 5MB", "in March 2024"); filters type/ext/size/date; inotify live watcher with polling fallback; FastAPI + single-page UI; synthetic data generator.
 - **Benchmark (100k synthetic files, 2.1GB, hot cache):** crawl 2.2s, extract 62k text files 5.3s, DB 76MB, search ~5ms, watcher picks up create/rename/delete in ~2-5s.
 - **Broken / known issues:**
@@ -128,6 +128,7 @@ tests/
 
 ## CHANGELOG (newest first)
 
+- 2026-11-23: Made project buildable: pyproject.toml (setuptools, src layout, `me3` entry point, extras), static UI moved to src/me3/static (packaged), connectors/ is a package, Makefile (build/test/lint/run/clean), ruff config, lint clean; wheel verified to import standalone. Live watcher create/rename/delete re-verified.
 - 2026-11-23: Phase 1 slice built: db, sources, crawler, extract, watcher, indexer, nlq, search, api, cli, static UI, gen_data, tests; benchmarked on 100k files; fixed watcher ignoring paths under data/.
 - 2026-11-23: Project moved to ~/Desktop/AquaFlare/me3-fsi (all files must live here).
 - 2026-11-23: Installed all non-torch deps into ./libs + en_core_web_sm; verified imports, sqlite-vec, FTS5, Presidio.

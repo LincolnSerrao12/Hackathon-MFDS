@@ -17,11 +17,10 @@ EXT_WORDS = {
     "slides": ["pptx", "ppt"], "docx": ["docx"], "csv": ["csv"], "zip": ["zip"], "word": ["docx", "doc"],
 }
 MONTHS = {m: i + 1 for i, m in enumerate(
-    "january february march april may june july august september october november december".split())}
+    ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"])}
 MONTHS.update({m[:3]: i for m, i in list(MONTHS.items())})
 UNITS = {"kb": 1024, "mb": 1024**2, "gb": 1024**3, "tb": 1024**4}
-STOP = set("the a an of from in on at to for and my me i with that this is was were it its by as are be last past "
-           "file files find show get all any some those these about during over under older newer".split())
+STOP = set(["the", "a", "an", "of", "from", "in", "on", "at", "to", "for", "and", "my", "me", "i", "with", "that", "this", "is", "was", "were", "it", "its", "by", "as", "are", "be", "last", "past", "file", "files", "find", "show", "get", "all", "any", "some", "those", "these", "about", "during", "over", "under", "older", "newer"])
 
 
 def _sod(d):  # start of day

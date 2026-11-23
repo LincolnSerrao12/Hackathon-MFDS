@@ -6,10 +6,11 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from . import db, search as searchmod, sources
+from . import db, sources
+from . import search as searchmod
 from .indexer import indexer
 
-STATIC = Path(__file__).resolve().parents[2] / "static"
+STATIC = Path(__file__).resolve().parent / "static"
 
 
 @asynccontextmanager

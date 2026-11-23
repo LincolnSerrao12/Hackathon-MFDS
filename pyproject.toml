@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "me3-fsi"
+version = "0.1.0"
+description = "ME3 File System Intelligence: local-first search, organisation and cleanup for file storage"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi",
+  "uvicorn[standard]",
+  "watchdog",
+  "typer",
+  "rich",
+  "pydantic",
+  "pypdf",
+  "python-docx",
+  "python-multipart",
+]
+
+[project.optional-dependencies]
+privacy = ["presidio-analyzer", "presidio-anonymizer", "spacy"]
+llm = ["anthropic", "python-dotenv"]
+connectors = ["paramiko", "google-api-python-client", "google-auth-oauthlib"]
+semantic = ["sentence-transformers", "sqlite-vec", "numpy", "pillow"]
+ocr = ["pytesseract", "pillow"]
+dev = ["pytest", "ruff"]
+
+[project.scripts]
+me3 = "me3.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+me3 = ["static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 140
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501", "E701", "E702", "E741"]

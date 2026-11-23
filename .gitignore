@@ -10,3 +10,6 @@ token.json
 *.db-*
 data/
 .uv-cache/
+dist/
+build/
+*.egg-info/
