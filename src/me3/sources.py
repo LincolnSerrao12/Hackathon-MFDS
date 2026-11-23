@@ -15,6 +15,7 @@ class Entry:
     size: int
     mtime: float
     is_dir: bool = False
+    hash: str | None = None  # content checksum when the source provides one for free (Drive: 'md5:<hex>')
 
 
 class LocalSource:

@@ -22,10 +22,10 @@ def _hash_file(path: str, partial: bool) -> str:
     return h.hexdigest()
 
 
-MAX_DUP_BYTES = 512 * 1024 * 1024  # hashing multi-GB files (games, VM images) would take minutes; large_files() lists those
+MAX_DUP_BYTES = 1 << 62  # no upper limit: big files are only fully hashed when size AND the first 64 KB already match
 
 
-def find_duplicates(conn, min_size: int = 1024, limit_groups: int = 100, source_id: int | None = None) -> dict:
+def find_duplicates(conn, min_size: int = 1, limit_groups: int = 100, source_id: int | None = None) -> dict:
     """size -> partial hash -> full hash. Only local sources are hashed (remote needs a download)."""
     where = "AND source_id=?" if source_id else ""
     args = [min_size] + ([source_id] if source_id else [])
@@ -65,7 +65,32 @@ def find_duplicates(conn, min_size: int = 1024, limit_groups: int = 100, source_
                     groups.append({"hash": hv, "size": size, "wasted": size * (len(g) - 1), "kind": g[0]["kind"], "ext": g[0]["ext"],
                                    "files": [{"id": r["id"], "path": r["path"], "mtime": r["mtime"]} for r in g]})
     conn.commit()
-    groups.sort(key=lambda g: -g["wasted"])
+    # Google Drive: compare the MD5 checksums Drive already provides (no downloads)
+    remote = conn.execute(
+        """SELECT f.id,f.path,f.size,f.mtime,f.hash,f.kind,f.ext FROM files f JOIN sources s ON s.id=f.source_id
+           WHERE s.kind!='local' AND f.hash LIKE 'md5:%' AND f.size>=?""", [min_size]).fetchall()
+    by_hash = defaultdict(list)
+    for r in remote:
+        by_hash[(r["size"], r["hash"])].append(r)
+    for (size, hv), g in by_hash.items():
+        if len(g) > 1:
+            g.sort(key=lambda r: r["mtime"])
+            groups.append({"hash": hv[4:], "algo": "MD5 (from Google Drive)", "size": size, "wasted": size * (len(g) - 1), "kind": g[0]["kind"],
+                           "ext": g[0]["ext"], "remote": True, "files": [{"id": r["id"], "path": r["path"].split("#")[0], "mtime": r["mtime"]} for r in g]})
+    # Google Docs/Sheets/Slides have no checksum: compare their exported text instead (reported as "likely", not identical)
+    native = conn.execute(
+        """SELECT f.id,f.path,f.size,f.mtime,f.kind,f.ext,t.body FROM files f JOIN sources s ON s.id=f.source_id JOIN fts t ON t.rowid=f.id
+           WHERE s.kind!='local' AND f.hash IS NULL AND f.ext IN ('gdoc','gsheet','gslides') AND length(t.body) >= 50""").fetchall()
+    by_text = defaultdict(list)
+    for r in native:
+        by_text[(r["ext"], hashlib.sha1(r["body"].encode()).hexdigest())].append(r)
+    for (_, hv), g in by_text.items():
+        if len(g) > 1:
+            g.sort(key=lambda r: r["mtime"])
+            groups.append({"hash": hv, "algo": "same text content", "likely": True, "size": g[0]["size"], "wasted": g[0]["size"] * (len(g) - 1),
+                           "kind": g[0]["kind"], "ext": g[0]["ext"], "remote": True,
+                           "files": [{"id": r["id"], "path": r["path"].split("#")[0], "mtime": r["mtime"]} for r in g]})
+    groups.sort(key=lambda g: (-g["wasted"], g["files"][0]["path"]))
     return {"groups": groups[:limit_groups], "total_groups": len(groups), "wasted_bytes": sum(g["wasted"] for g in groups)}
 
 

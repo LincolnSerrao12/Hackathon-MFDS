@@ -224,7 +224,7 @@ _dup_cache: dict = {}
 
 
 @app.get("/api/cleanup/duplicates")
-def cleanup_duplicates(min_size: int = 1024, limit: int = Query(20, le=500), offset: int = 0, kind: str = "", fresh: bool = False):
+def cleanup_duplicates(min_size: int = 1, limit: int = Query(100000, le=100000), offset: int = 0, kind: str = "", fresh: bool = False):
     """All duplicate groups (largest waste first), filterable by file type and paged. The full result is cached
     until the index changes, so paging and switching types never re-hashes."""
     c = db.get()

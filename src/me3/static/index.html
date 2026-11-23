@@ -456,7 +456,7 @@
   <div class="card"><h3>Duplicate files <span class="hint" id="dup-count"></span></h3>
     <div class="types hidden" id="dup-types" style="margin:0 0 12px"></div>
     <div id="cl-dup"><small>Run Analyse to look for duplicates.</small></div>
-    <div class="more hidden" id="dup-more"><button id="dup-more-btn">Show more</button></div></div>
+</div>
   <div class="two">
     <div class="card"><h3>Largest files</h3><div id="cl-large"><small>—</small></div></div>
     <div class="card"><h3>Old media (untouched for a year)</h3><div id="cl-stale"><small>—</small></div></div>
@@ -694,15 +694,16 @@ async function compareDup(g) {
   const m = openModal(`<div class="box wide">
     <div class="vh"><div class="t"><h4>${g.files.length} copies of the same file</h4><div class="pth">${fmt(g.size)} each · ${fmt(g.wasted)} would be freed</div></div><button class="icon-btn" data-close aria-label="Close">${icon('x')}</button></div>
     <div style="display:grid;grid-template-rows:auto minmax(0,1fr);min-height:0">
-      <div class="same">${icon('check')}<span>Byte-for-byte identical: same size and the same content fingerprint (SHA-1 <code>${esc((g.hash || '').slice(0, 12))}…</code>). Check the preview, then choose which copy to keep.</span></div>
+      ${g.likely ? `<div class="same" style="color:var(--warn);background:color-mix(in srgb, var(--warn) 10%, transparent)">${icon('check')}<span>Likely duplicates: these Google Docs contain the same text (Google gives no checksum for Docs, so only their text could be compared). Check the preview before deleting one.</span></div>`
+        : `<div class="same">${icon('check')}<span>Byte-for-byte identical: same size and the same content fingerprint (${esc(g.algo || 'SHA-1')} <code>${esc((g.hash || '').slice(0, 12))}…</code>). Check the preview, then choose which copy to keep.</span></div>`}
       <div class="cmp"><div class="list"></div><div class="vbody"><div class="pv"><span class="spin"></span></div></div></div>
     </div>
-    <div class="vf"><span class="grow meta" id="cmp-note"></span><button class="btn-sm" data-close>Cancel</button><button class="btn-danger btn-sm" id="cmp-trash">${icon('trash')} Move the other ${g.files.length - 1} to trash</button></div></div>`);
+    <div class="vf"><span class="grow meta" id="cmp-note"></span><button class="btn-sm" data-close>Cancel</button>${g.remote ? '<button class="btn-sm" disabled title="Read-only access to Drive">Delete extra copies in Google Drive</button>' : `<button class="btn-danger btn-sm" id="cmp-trash">${icon('trash')} Move the other ${g.files.length - 1} to trash</button>`}</div></div>`);
   const list = m.el.querySelector('.list'), body = m.el.querySelector('.vbody'), cache = {};
   const drawList = () => {
     list.innerHTML = g.files.map((f, i) => `<button class="cp ${f.id === cur ? 'on' : ''}" data-id="${f.id}"><span class="pth">${esc(f.path)}</span>
       <span class="row"><span class="pill">${new Date(f.mtime * 1000).toLocaleString()}</span>${i === 0 ? '<span class="pill">oldest</span>' : ''}${f.id === keep ? `<span class="pill ok">${icon('check')} keep</span>` : `<span class="pill" data-keep="${f.id}" style="cursor:pointer">keep this one</span>`}</span></button>`).join('');
-    m.el.querySelector('#cmp-note').textContent = 'Keeping: ' + g.files.find(f => f.id === keep).path;
+    m.el.querySelector('#cmp-note').textContent = g.remote ? 'Google Drive files: open Drive to delete the copy you don’t need.' : 'Keeping: ' + g.files.find(f => f.id === keep).path;
   };
   const show = async id => {
     cur = id; drawList(); body.innerHTML = '<div class="pv"><span class="spin"></span></div>';
@@ -717,7 +718,7 @@ async function compareDup(g) {
     const k = e.target.closest('[data-keep]'); if (k) { keep = +k.dataset.keep; drawList(); e.stopPropagation(); return; }
     const c = e.target.closest('[data-id]'); if (c) show(+c.dataset.id);
   };
-  m.el.querySelector('#cmp-trash').onclick = async () => {
+  if (m.el.querySelector('#cmp-trash')) m.el.querySelector('#cmp-trash').onclick = async () => {
     const ids = g.files.filter(f => f.id !== keep).map(f => f.id);
     const ok = await confirmBox(`Move ${ids.length} cop${ids.length > 1 ? 'ies' : 'y'} to trash?`, 'Keeping:\n' + g.files.find(f => f.id === keep).path + '\n\nThe others go to the app’s trash folder and can be moved back.', 'Move to trash', true);
     if (!ok) return;
@@ -975,30 +976,28 @@ let dupGroups = [], dupKind = '';
 function renderDups(d, append) {
   dupGroups = append ? dupGroups.concat(d.groups) : d.groups;
   const start = append ? dupGroups.length - d.groups.length : 0;
-  $('dup-count').textContent = d.total_groups ? `${d.total_groups.toLocaleString()} groups · ${fmt(d.wasted_bytes)} wasted · showing ${dupGroups.length} of ${d.matching.toLocaleString()}` : '';
+  $('dup-count').textContent = d.total_groups ? `${d.total_groups.toLocaleString()} groups · ${fmt(d.wasted_bytes)} could be freed${dupKind ? ` · showing ${d.matching.toLocaleString()} ${KIND_LABEL[dupKind] || dupKind}` : ''}` : '';
   const kinds = Object.entries(d.kinds || {}).sort((a, b) => b[1] - a[1]);
   $('dup-types').classList.toggle('hidden', kinds.length < 2);
   $('dup-types').innerHTML = `<button data-dk="" class="${dupKind ? '' : 'on'}">All <span class="v">${d.total_groups}</span></button>` +
     kinds.map(([k, n]) => `<button data-dk="${esc(k)}" class="${dupKind === k ? 'on' : ''}">${icon(KIND_ICON[k] || 'file')}${esc(KIND_LABEL[k] || k)} <span class="v">${n}</span></button>`).join('');
   const html = d.groups.map((g, j) => { const gi = start + j, isImg = g.kind === 'image' && IMG_EXTS.includes(g.ext);
     return `<div class="grp"><div class="hd"><b><span style="color:${KIND_COLOR[g.kind]}">${icon(KIND_ICON[g.kind] || 'file')}</span> ${g.files.length} copies · ${fmt(g.size)} each · <span style="color:var(--warn)">${fmt(g.wasted)} wasted</span></b>
-        <span class="row" style="flex:none"><button class="btn-pri btn-sm" data-compare="${gi}">${icon('eye')} Compare copies</button>${trashBtn(g.files.slice(1).map(f => f.id))}</span></div>
+        <span class="row" style="flex:none">${g.remote ? `<span class="pill">${icon('drive')} Google Drive</span>` : ''}${g.likely ? '<span class="pill warn" title="Google Docs have no checksum; their text is identical">likely: same text</span>' : ''}<button class="btn-pri btn-sm" data-compare="${gi}">${icon('eye')} Compare copies</button>${g.remote ? '<button class="btn-sm" disabled title="This app has read-only access to Drive: delete the extra copy in Google Drive">Delete in Drive</button>' : trashBtn(g.files.slice(1).map(f => f.id))}</span></div>
       ${g.files.map((f, i) => `<div class="frow"><span class="row" style="gap:10px;min-width:0;flex:1;flex-wrap:nowrap">${isImg ? `<img class="dthumb" loading="lazy" src="/api/thumb/${f.id}" alt="" data-view="${f.id}">` : ''}<span class="pth">${i === 0 ? '<span class="keep">KEEP (oldest)</span>' : ''}${esc(f.path)}</span></span><button class="btn-sm" data-view="${f.id}">${icon('eye')} View</button></div>`).join('')}</div>`; }).join('');
   if (append) $('cl-dup').insertAdjacentHTML('beforeend', html);
   else $('cl-dup').innerHTML = html || `<div class="empty" style="padding:16px">${icon('copy')}<b>No duplicates found</b></div>`;
-  $('dup-more').classList.toggle('hidden', dupGroups.length >= d.matching);
 }
 async function loadDups(append) {
-  try { renderDups(await J(`/api/cleanup/duplicates?limit=20&offset=${append ? dupGroups.length : 0}&kind=${encodeURIComponent(dupKind)}`), append); }
+  try { renderDups(await J(`/api/cleanup/duplicates?kind=${encodeURIComponent(dupKind)}`), false); }
   catch (e) { toast(e.message, 'bad'); }
 }
 $('dup-types').onclick = e => { const b = e.target.closest('[data-dk]'); if (b) { dupKind = b.dataset.dk; loadDups(false); } };
-$('dup-more-btn').onclick = () => loadDups(true);
 const trashBtn = ids => `<button class="btn-danger btn-sm" data-trash="${ids.join(',')}">${icon('trash')} Move to trash</button>`;
 async function loadCleanup() {
   $('cl-run').disabled = true; $('cl-run').innerHTML = '<span class="spin"></span> Analysing…';
   try {
-    const [sum, dup, big, stale] = await Promise.all([J('/api/cleanup/summary'), J('/api/cleanup/duplicates?limit=20&fresh=1'), J('/api/cleanup/large?limit=20&min_mb=50'), J('/api/cleanup/stale?limit=20')]);
+    const [sum, dup, big, stale] = await Promise.all([J('/api/cleanup/summary'), J('/api/cleanup/duplicates?fresh=1'), J('/api/cleanup/large?limit=20&min_mb=50'), J('/api/cleanup/stale?limit=20')]);
     $('cl-sum').innerHTML = [[fmt(sum.duplicate_wasted_bytes), `wasted in ${sum.duplicate_groups} duplicate groups`], [fmt(sum.large_bytes), `in ${sum.large_files} files over 50 MB`], [fmt(sum.stale_media_bytes), `in ${sum.stale_media_files} old media files`]]
       .map(([a, b]) => `<div class="tile"><b>${a}</b><small>${b}</small></div>`).join('');
     const tot = (lastStats && lastStats.bytes) || 0;

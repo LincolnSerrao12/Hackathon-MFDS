@@ -110,7 +110,7 @@ class GDriveSource:
         while True:
             r = self.svc.files().list(
                 q=q, pageSize=1000, pageToken=token,
-                fields="nextPageToken, files(id,name,mimeType,size,modifiedTime,parents)",
+                fields="nextPageToken, files(id,name,mimeType,size,modifiedTime,parents,md5Checksum)",
             ).execute()
             yield from r.get("files", [])
             token = r.get("nextPageToken")
@@ -153,7 +153,8 @@ class GDriveSource:
             name = f["name"] + (native[0] if native else "")
             path = (folder_path(par) if par else "") + "/" + name + f"#{f['id']}"
             self._ids[path] = (f["id"], f["mimeType"])
-            yield Entry(path, name, int(f.get("size") or 0), _ts(f.get("modifiedTime", "")))
+            md5 = f.get("md5Checksum")  # Drive computes this for uploaded files (not for Docs/Sheets/Slides)
+            yield Entry(path, name, int(f.get("size") or 0), _ts(f.get("modifiedTime", "")), hash=f"md5:{md5}" if md5 else None)
 
     def stat(self, path: str):
         return None  # not used (no watcher); periodic rescans call walk()

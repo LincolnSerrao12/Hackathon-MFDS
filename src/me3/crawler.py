@@ -15,17 +15,19 @@ def upsert(conn, sid: int, e: Entry, old=None) -> str:
     ext, kind, ex = _row(sid, e)
     if old is None:
         cur = conn.execute(
-            "INSERT INTO files(source_id,path,name,ext,kind,size,mtime,extracted) VALUES(?,?,?,?,?,?,?,?)",
-            (sid, e.path, e.name, ext, kind, e.size, e.mtime, ex),
+            "INSERT INTO files(source_id,path,name,ext,kind,size,mtime,extracted,hash) VALUES(?,?,?,?,?,?,?,?,?)",
+            (sid, e.path, e.name, ext, kind, e.size, e.mtime, ex, e.hash),
         )
         conn.execute("INSERT INTO fts(rowid,name,path,body) VALUES(?,?,?,'')", (cur.lastrowid, e.name, e.path))
         return "new"
     if old["size"] != e.size or abs(old["mtime"] - e.mtime) > 1e-6:
         conn.execute(
-            "UPDATE files SET size=?,mtime=?,extracted=?,hash=NULL,embedded=0 WHERE id=?", (e.size, e.mtime, ex, old["id"])
+            "UPDATE files SET size=?,mtime=?,extracted=?,hash=?,embedded=0 WHERE id=?", (e.size, e.mtime, ex, e.hash, old["id"])
         )
         conn.execute("UPDATE fts SET body='' WHERE rowid=?", (old["id"],))
         return "changed"
+    if e.hash and "hash" in old.keys() and old["hash"] != e.hash:  # backfill a free checksum on rows indexed before it existed
+        conn.execute("UPDATE files SET hash=? WHERE id=?", (e.hash, old["id"]))
     return "same"
 
 
@@ -44,7 +46,7 @@ def scan(conn, src, progress=None, should_stop=lambda: False) -> dict:
     """Full incremental scan of a source. Safe to re-run; cheap when nothing changed."""
     sid = src.id
     existing = {
-        r["path"]: r for r in conn.execute("SELECT id,path,size,mtime FROM files WHERE source_id=?", (sid,))
+        r["path"]: r for r in conn.execute("SELECT id,path,size,mtime,hash FROM files WHERE source_id=?", (sid,))
     }
     seen, stats, n = set(), {"new": 0, "changed": 0, "same": 0, "removed": 0, "aborted": False}, 0
     for e in src.walk():
