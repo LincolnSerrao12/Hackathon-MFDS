@@ -220,9 +220,24 @@ def cleanup_summary():
     return cleanup.summary(db.get())
 
 
+_dup_cache: dict = {}
+
+
 @app.get("/api/cleanup/duplicates")
-def cleanup_duplicates(min_size: int = 1024, limit: int = 50):
-    return cleanup.find_duplicates(db.get(), min_size=min_size, limit_groups=limit)
+def cleanup_duplicates(min_size: int = 1024, limit: int = Query(20, le=500), offset: int = 0, kind: str = "", fresh: bool = False):
+    """All duplicate groups (largest waste first), filterable by file type and paged. The full result is cached
+    until the index changes, so paging and switching types never re-hashes."""
+    c = db.get()
+    sig = tuple(c.execute("SELECT count(*), coalesce(sum(mtime),0), coalesce(sum(size),0) FROM files").fetchone()) + (min_size,)
+    if fresh or _dup_cache.get("sig") != sig:
+        _dup_cache.update(sig=sig, data=cleanup.find_duplicates(c, min_size=min_size, limit_groups=1_000_000))
+    data = _dup_cache["data"]
+    counts: dict = {}
+    for g in data["groups"]:
+        counts[g["kind"]] = counts.get(g["kind"], 0) + 1
+    groups = [g for g in data["groups"] if not kind or g["kind"] == kind]
+    return {"groups": groups[offset: offset + limit], "total_groups": data["total_groups"], "matching": len(groups),
+            "wasted_bytes": data["wasted_bytes"], "kinds": counts}
 
 
 @app.get("/api/cleanup/large")
@@ -294,6 +309,73 @@ def file_raw(fid: int):
     except Exception as e:  # noqa: BLE001
         raise HTTPException(502, f"could not download from {r['source']}: {e}") from e
     return Response(data, media_type=mime, headers=headers)
+
+
+KNOWN_TYPES = {
+    "dll": "Windows program library (DLL)", "exe": "Windows program", "so": "Linux shared library", "msi": "Windows installer",
+    "iso": "Disc image", "bin": "Binary data", "dat": "Data file", "pak": "Game/app data package", "db": "Database", "sqlite": "SQLite database",
+    "apk": "Android app package", "deb": "Debian package", "pkg": "Package", "ttf": "Font", "otf": "Font", "woff": "Web font", "woff2": "Web font",
+    "pyc": "Compiled Python", "class": "Compiled Java", "o": "Compiled object file", "a": "Static library", "jar": "Java archive",
+    "xlsx": "Excel spreadsheet", "pptx": "PowerPoint presentation", "docx": "Word document", "odt": "OpenDocument text", "epub": "E-book",
+    "heic": "HEIC photo", "psd": "Photoshop image", "mkv": "Matroska video", "avi": "AVI video", "wmv": "Windows video", "flv": "Flash video",
+}
+MAGIC = [(b"MZ", "Windows executable / DLL (PE)"), (b"\x7fELF", "Linux executable / library (ELF)"), (b"PK\x03\x04", "ZIP container"),
+         (b"%PDF", "PDF document"), (b"\x89PNG", "PNG image"), (b"\xff\xd8\xff", "JPEG image"), (b"GIF8", "GIF image"), (b"SQLite format 3", "SQLite database"),
+         (b"\x1f\x8b", "gzip archive"), (b"7z\xbc\xaf", "7-Zip archive"), (b"Rar!", "RAR archive"), (b"OggS", "Ogg media"), (b"RIFF", "RIFF media (WAV/AVI/WebP)"),
+         (b"ID3", "MP3 audio"), (b"\x1aE\xdf\xa3", "Matroska/WebM video"), (b"\xd0\xcf\x11\xe0", "Old Office document (OLE)")]
+
+
+@app.get("/api/files/{fid}/peek")
+def file_peek(fid: int):
+    """For files the browser cannot display: what it is, what is inside (archives, Office files) and its first bytes."""
+    import hashlib
+    import re
+    import tarfile
+    import zipfile
+
+    r = _file_row(fid)
+    src = sources.load(db.get(), r["source_id"])
+    if r["skind"] != "local" and r["size"] > RAW_MAX_REMOTE:
+        raise HTTPException(413, "too large to inspect from Drive")
+    out = {"type": KNOWN_TYPES.get(r["ext"], f".{r['ext']} file" if r["ext"] else "File without an extension"),
+           "detected": None, "entries": None, "entries_total": 0, "text": "", "hex": "", "strings": [], "sha1": r["hash"]}
+    try:
+        with src.fetch(r["path"]) as local:
+            with open(local, "rb") as fh:
+                head = fh.read(4096)
+            out["detected"] = next((d for sig, d in MAGIC if head.startswith(sig)), None)
+            if zipfile.is_zipfile(local):
+                with zipfile.ZipFile(local) as z:
+                    infos = z.infolist()
+                    out["entries_total"] = len(infos)
+                    out["entries"] = [{"name": i.filename, "size": i.file_size} for i in infos[:300]]
+                    parts = [n for n in z.namelist() if re.match(r"(xl/sharedStrings|ppt/slides/slide\d+|word/document|content)\.xml$", n)]
+                    for n in sorted(parts, key=lambda x: [int(t) if t.isdigit() else t for t in re.split(r"(\d+)", x)])[:60]:
+                        xml = z.read(n)[:400_000].decode("utf-8", "replace")
+                        out["text"] += re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", xml)).strip() + "\n\n"
+                    out["text"] = out["text"][:PREVIEW_TEXT]
+            elif r["ext"] in ("tar", "gz", "tgz", "bz2", "xz") and tarfile.is_tarfile(local):
+                with tarfile.open(local) as t:
+                    members = []
+                    for m in t:
+                        members.append({"name": m.name, "size": m.size})
+                        if len(members) >= 300:
+                            break
+                    out["entries"], out["entries_total"] = members, len(members)
+            if r["skind"] == "local" and not out["sha1"] and r["size"] <= 512 * 1024 * 1024:
+                h = hashlib.sha1()
+                with open(local, "rb") as fh:
+                    for chunk in iter(lambda: fh.read(1 << 20), b""):
+                        h.update(chunk)
+                out["sha1"] = h.hexdigest()
+    except OSError as e:
+        raise HTTPException(404, f"cannot read the file: {e}") from e
+    except Exception as e:  # noqa: BLE001  (corrupt archive etc.: still show the bytes)
+        out["error"] = str(e)[:200]
+    out["hex"] = "\n".join(f"{i:08x}  {head[i:i + 16].hex(' '):<47}  {''.join(chr(b) if 32 <= b < 127 else '.' for b in head[i:i + 16])}"
+                           for i in range(0, min(len(head), 512), 16))
+    out["strings"] = [m.decode() for m in re.findall(rb"[ -~]{6,}", head)][:40]
+    return out
 
 
 class OpenIn(BaseModel):

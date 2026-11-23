@@ -273,7 +273,7 @@
   .pv.top { place-items:stretch; }
   .vf { display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:12px 18px; border-top:1px solid var(--line); }
   .vf .grow { flex:1; }
-  .modal .vh .row, .modal .cmp .row, .modal .flist .row { justify-content:flex-start; }
+  .modal .vh .row, .modal .cmp .row, .modal .flist .row, .modal .peek .row, .modal .grp .row { justify-content:flex-start; }
   .cmp { display:grid; grid-template-columns:300px minmax(0,1fr); min-height:0; }
   .cmp .list { border-right:1px solid var(--line); overflow:auto; padding:10px; background:var(--panel); }
   .cmp .cp { display:block; width:100%; text-align:left; padding:10px; margin-bottom:8px; border-radius:10px; background:var(--panel2); }
@@ -282,6 +282,11 @@
   .cmp .cp .row { gap:6px; }
   .same { display:flex; gap:8px; align-items:center; padding:9px 18px; font-size:13px; background:color-mix(in srgb, var(--ok) 10%, transparent); color:var(--ok); border-bottom:1px solid var(--line); }
   .flist .frow { gap:12px; }
+  .dthumb { width:44px; height:34px; border-radius:6px; object-fit:cover; flex:none; background:var(--panel2); border:1px solid var(--line); cursor:zoom-in; }
+  .hexv { font:12px/1.5 ui-monospace,monospace; }
+  .types .v { color:var(--mute); font-size:11.5px; }
+  .peek h5 { margin:14px 0 6px; font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--mute); }
+  .peek { padding:16px 18px; width:100%; align-self:start; }
   .flist .frow .nm { font-weight:600; font-size:13px; word-break:break-word; }
   @media (max-width: 760px) { .cmp { grid-template-columns:1fr; grid-template-rows:auto minmax(0,1fr); } .cmp .list { max-height:30vh; border-right:0; border-bottom:1px solid var(--line); } }
 
@@ -448,7 +453,10 @@
     <div id="cl-chart"></div>
     <small style="display:block;margin-top:10px">“Analyse” hashes candidate duplicates, which can take a few seconds on big indexes. “Move to trash” puts files in <code>data/trash/&lt;time&gt;/</code> with a list of where they came from, so it can be undone. Only local files can be moved.</small>
   </div>
-  <div class="card"><h3>Duplicate files</h3><div id="cl-dup"><small>Run Analyse to look for duplicates.</small></div></div>
+  <div class="card"><h3>Duplicate files <span class="hint" id="dup-count"></span></h3>
+    <div class="types hidden" id="dup-types" style="margin:0 0 12px"></div>
+    <div id="cl-dup"><small>Run Analyse to look for duplicates.</small></div>
+    <div class="more hidden" id="dup-more"><button id="dup-more-btn">Show more</button></div></div>
   <div class="two">
     <div class="card"><h3>Largest files</h3><div id="cl-large"><small>—</small></div></div>
     <div class="card"><h3>Old media (untouched for a year)</h3><div id="cl-stale"><small>—</small></div></div>
@@ -642,7 +650,22 @@ function previewHtml(f) {
   if (BROWSER_VIDEO.includes(f.ext)) return `<div class="pv"><video controls preload="metadata" src="${raw}"></video></div>`;
   if (BROWSER_AUDIO.includes(f.ext)) return `<div class="pv"><div style="text-align:center">${icon('audio')}<br><audio controls preload="metadata" src="${raw}" style="margin-top:12px"></audio></div></div>`;
   if (f.text) return `<div class="pv top"><pre>${esc(f.text)}${f.text.length >= 6000 ? '\n\n… (preview shows the first 6,000 characters)' : ''}</pre></div>`;
-  return `<div class="pv"><div class="empty">${icon(KIND_ICON[f.kind] || 'file')}<b>No preview for .${esc(f.ext || 'this')} files</b>${f.local ? 'Use “Open” to view it in its usual app.' : 'Open it in Google Drive to view it.'}</div></div>`;
+  return `<div class="pv top" data-peek="${f.id}"><div class="peek"><span class="spin"></span> Looking inside…</div></div>`;
+}
+// files a browser can't display: say what it is, show what's inside (archives, Office) and its first bytes
+async function fillPeek(root) {
+  const el = root.querySelector('[data-peek]'); if (!el) return;
+  let p;
+  try { p = await J(`/api/files/${el.dataset.peek}/peek`); }
+  catch (e) { el.innerHTML = `<div class="peek"><div class="empty">${icon('file')}<b>Can’t look inside this file</b>${esc(e.message)}</div></div>`; return; }
+  const entries = p.entries ? `<h5>Inside (${p.entries_total.toLocaleString()} item${p.entries_total === 1 ? '' : 's'})</h5><table class="dt">${p.entries.map(x => `<tr><td style="word-break:break-all">${esc(x.name)}</td><td class="n">${fmt(x.size)}</td></tr>`).join('')}</table>${p.entries_total > p.entries.length ? `<small>…and ${(p.entries_total - p.entries.length).toLocaleString()} more</small>` : ''}` : '';
+  el.innerHTML = `<div class="peek">
+    <div class="row" style="gap:8px"><span class="pill">${esc(p.type)}</span>${p.detected && p.detected !== p.type ? `<span class="pill">contents look like: ${esc(p.detected)}</span>` : ''}</div>
+    <small style="display:block;margin-top:8px">The browser can’t display this kind of file, so here’s what’s in it. Use “Open” to view it in its usual app.</small>
+    ${p.text ? `<h5>Text found inside</h5><pre>${esc(p.text)}</pre>` : ''}${entries}
+    ${p.sha1 ? `<h5>Content fingerprint (SHA-1)</h5><code style="word-break:break-all">${esc(p.sha1)}</code><br><small>Two files with the same fingerprint have exactly the same contents.</small>` : ''}
+    ${p.strings.length ? `<h5>Readable text at the start</h5><pre>${esc(p.strings.join('\n'))}</pre>` : ''}
+    <h5>First bytes</h5><pre class="hexv">${esc(p.hex)}</pre></div>`;
 }
 function fileActions(f) {
   return `<button class="btn-sm" data-act="open" ${f.local && f.exists ? '' : 'disabled title="Only files on this computer can be opened here"'}>${icon('ext')} Open</button>
@@ -660,7 +683,7 @@ async function viewFile(id) {
   try { f = await J('/api/files/' + id); } catch (e) { m.el.querySelector('.vbody').innerHTML = `<div class="pv"><div class="empty">${icon('x')}<b>Can’t show this file</b>${esc(e.message)}</div></div>`; return; }
   m.el.querySelector('.vh .t').innerHTML = `<h4>${esc(f.name)}</h4><div class="pth">${esc(f.path)}</div>
     <div class="row" style="gap:6px;margin-top:8px"><span class="pill" style="color:${KIND_COLOR[f.kind]}">${esc(f.kind)}</span><span class="pill">${fmt(f.size)}</span><span class="pill">modified ${esc(f.modified)}</span><span class="pill">${esc(f.source)}</span></div>`;
-  m.el.querySelector('.vbody').innerHTML = previewHtml(f);
+  m.el.querySelector('.vbody').innerHTML = previewHtml(f); fillPeek(m.el);
   m.el.querySelector('.vf').innerHTML = fileActions(f) + '<span class="grow"></span><button class="btn-sm" data-close>Close</button>';
   m.el.querySelector('.vf').onclick = e => { const b = e.target.closest('[data-act]'); if (b) fileAct(b.dataset.act, f); };
 }
@@ -687,6 +710,7 @@ async function compareDup(g) {
     if (cur !== id) return;
     const f = cache[id];
     body.innerHTML = `<div style="display:grid;grid-template-rows:minmax(0,1fr) auto;min-height:0">${previewHtml(f)}<div class="vf" style="border-top:1px solid var(--line)">${fileActions(f)}</div></div>`;
+    fillPeek(body);
     body.querySelector('.vf').onclick = e => { const b = e.target.closest('[data-act]'); if (b) fileAct(b.dataset.act, f); };
   };
   list.onclick = e => {
@@ -947,12 +971,34 @@ $('add-btn').onclick = addSource;
 ['l-root', 's-name', 'g-root'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') addSource(); }));
 
 // ================= cleanup =================
-let dupGroups = [];
+let dupGroups = [], dupKind = '';
+function renderDups(d, append) {
+  dupGroups = append ? dupGroups.concat(d.groups) : d.groups;
+  const start = append ? dupGroups.length - d.groups.length : 0;
+  $('dup-count').textContent = d.total_groups ? `${d.total_groups.toLocaleString()} groups · ${fmt(d.wasted_bytes)} wasted · showing ${dupGroups.length} of ${d.matching.toLocaleString()}` : '';
+  const kinds = Object.entries(d.kinds || {}).sort((a, b) => b[1] - a[1]);
+  $('dup-types').classList.toggle('hidden', kinds.length < 2);
+  $('dup-types').innerHTML = `<button data-dk="" class="${dupKind ? '' : 'on'}">All <span class="v">${d.total_groups}</span></button>` +
+    kinds.map(([k, n]) => `<button data-dk="${esc(k)}" class="${dupKind === k ? 'on' : ''}">${icon(KIND_ICON[k] || 'file')}${esc(KIND_LABEL[k] || k)} <span class="v">${n}</span></button>`).join('');
+  const html = d.groups.map((g, j) => { const gi = start + j, isImg = g.kind === 'image' && IMG_EXTS.includes(g.ext);
+    return `<div class="grp"><div class="hd"><b><span style="color:${KIND_COLOR[g.kind]}">${icon(KIND_ICON[g.kind] || 'file')}</span> ${g.files.length} copies · ${fmt(g.size)} each · <span style="color:var(--warn)">${fmt(g.wasted)} wasted</span></b>
+        <span class="row" style="flex:none"><button class="btn-pri btn-sm" data-compare="${gi}">${icon('eye')} Compare copies</button>${trashBtn(g.files.slice(1).map(f => f.id))}</span></div>
+      ${g.files.map((f, i) => `<div class="frow"><span class="row" style="gap:10px;min-width:0;flex:1;flex-wrap:nowrap">${isImg ? `<img class="dthumb" loading="lazy" src="/api/thumb/${f.id}" alt="" data-view="${f.id}">` : ''}<span class="pth">${i === 0 ? '<span class="keep">KEEP (oldest)</span>' : ''}${esc(f.path)}</span></span><button class="btn-sm" data-view="${f.id}">${icon('eye')} View</button></div>`).join('')}</div>`; }).join('');
+  if (append) $('cl-dup').insertAdjacentHTML('beforeend', html);
+  else $('cl-dup').innerHTML = html || `<div class="empty" style="padding:16px">${icon('copy')}<b>No duplicates found</b></div>`;
+  $('dup-more').classList.toggle('hidden', dupGroups.length >= d.matching);
+}
+async function loadDups(append) {
+  try { renderDups(await J(`/api/cleanup/duplicates?limit=20&offset=${append ? dupGroups.length : 0}&kind=${encodeURIComponent(dupKind)}`), append); }
+  catch (e) { toast(e.message, 'bad'); }
+}
+$('dup-types').onclick = e => { const b = e.target.closest('[data-dk]'); if (b) { dupKind = b.dataset.dk; loadDups(false); } };
+$('dup-more-btn').onclick = () => loadDups(true);
 const trashBtn = ids => `<button class="btn-danger btn-sm" data-trash="${ids.join(',')}">${icon('trash')} Move to trash</button>`;
 async function loadCleanup() {
   $('cl-run').disabled = true; $('cl-run').innerHTML = '<span class="spin"></span> Analysing…';
   try {
-    const [sum, dup, big, stale] = await Promise.all([J('/api/cleanup/summary'), J('/api/cleanup/duplicates?limit=20'), J('/api/cleanup/large?limit=20&min_mb=50'), J('/api/cleanup/stale?limit=20')]);
+    const [sum, dup, big, stale] = await Promise.all([J('/api/cleanup/summary'), J('/api/cleanup/duplicates?limit=20&fresh=1'), J('/api/cleanup/large?limit=20&min_mb=50'), J('/api/cleanup/stale?limit=20')]);
     $('cl-sum').innerHTML = [[fmt(sum.duplicate_wasted_bytes), `wasted in ${sum.duplicate_groups} duplicate groups`], [fmt(sum.large_bytes), `in ${sum.large_files} files over 50 MB`], [fmt(sum.stale_media_bytes), `in ${sum.stale_media_files} old media files`]]
       .map(([a, b]) => `<div class="tile"><b>${a}</b><small>${b}</small></div>`).join('');
     const tot = (lastStats && lastStats.bytes) || 0;
@@ -961,11 +1007,7 @@ async function loadCleanup() {
       {label: 'Files over 50 MB', value: sum.large_bytes, fig: `${fmt(sum.large_bytes)} · ${pctTxt(sum.large_bytes, tot)}`, tip: 'Worth a look: not necessarily junk'},
       {label: 'Old media', value: sum.stale_media_bytes, fig: `${fmt(sum.stale_media_bytes)} · ${pctTxt(sum.stale_media_bytes, tot)}`, tip: 'Photos, videos, music and archives untouched for a year'},
       {label: 'Everything indexed', value: tot, fig: fmt(tot), color: 'var(--line2)', tip: 'The whole index, for scale'}]);
-    dupGroups = dup.groups;
-    $('cl-dup').innerHTML = dup.groups.map((g, gi) => `<div class="grp"><div class="hd"><b>${g.files.length} copies · ${fmt(g.size)} each · <span style="color:var(--warn)">${fmt(g.wasted)} wasted</span></b>
-        <span class="row" style="flex:none"><button class="btn-pri btn-sm" data-compare="${gi}">${icon('eye')} Compare copies</button>${trashBtn(g.files.slice(1).map(f => f.id))}</span></div>
-      ${g.files.map((f, i) => `<div class="frow"><span class="pth">${i === 0 ? '<span class="keep">KEEP (oldest)</span>' : ''}${esc(f.path)}</span><button class="btn-sm" data-view="${f.id}">${icon('eye')} View</button></div>`).join('')}</div>`).join('')
-      || `<div class="empty" style="padding:16px">${icon('copy')}<b>No duplicates found</b></div>`;
+    dupKind = ''; renderDups(dup, false);
     const list = a => a.map(f => `<div class="frow"><span class="pth">${esc(f.path)}</span><span class="row" style="flex:none;gap:8px"><small>${fmt(f.size)}</small><button class="btn-sm" data-view="${f.id}">${icon('eye')} View</button>${trashBtn([f.id])}</span></div>`).join('') || '<small>Nothing found.</small>';
     $('cl-large').innerHTML = list(big); $('cl-stale').innerHTML = list(stale);
   } catch (e) { toast(e.message, 'bad'); }

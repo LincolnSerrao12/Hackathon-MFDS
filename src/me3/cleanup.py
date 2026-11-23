@@ -30,7 +30,7 @@ def find_duplicates(conn, min_size: int = 1024, limit_groups: int = 100, source_
     where = "AND source_id=?" if source_id else ""
     args = [min_size] + ([source_id] if source_id else [])
     cand = conn.execute(
-        f"""SELECT f.id,f.path,f.size,f.mtime,f.hash FROM files f JOIN sources s ON s.id=f.source_id
+        f"""SELECT f.id,f.path,f.size,f.mtime,f.hash,f.kind,f.ext FROM files f JOIN sources s ON s.id=f.source_id
             WHERE s.kind='local' AND f.size>=? AND f.size<={MAX_DUP_BYTES} {where.replace('source_id', 'f.source_id')}
               AND f.size IN (SELECT size FROM files WHERE size>=? AND size<={MAX_DUP_BYTES} GROUP BY size HAVING count(*)>1)""",
         args + [min_size],
@@ -62,7 +62,7 @@ def find_duplicates(conn, min_size: int = 1024, limit_groups: int = 100, source_
             for hv, g in full.items():
                 if len(g) > 1:
                     g.sort(key=lambda r: r["mtime"])
-                    groups.append({"hash": hv, "size": size, "wasted": size * (len(g) - 1),
+                    groups.append({"hash": hv, "size": size, "wasted": size * (len(g) - 1), "kind": g[0]["kind"], "ext": g[0]["ext"],
                                    "files": [{"id": r["id"], "path": r["path"], "mtime": r["mtime"]} for r in g]})
     conn.commit()
     groups.sort(key=lambda g: -g["wasted"])
